@@ -435,17 +435,29 @@ document.getElementById('submitExam').addEventListener('click', () => {
         stream.getTracks().forEach(track => track.stop());
     }
     
-    fetch("{% url 'end_session' %}", {
-        method: "POST",
+    // TODO: Replace these with actual exam data
+    const totalQuestions = 50;  // Replace with your actual number of questions
+    const correctAnswers = 40;   // Calculate based on actual answers
+    
+    // Submit exam results
+    fetch('/api/submit-exam/', {
+        method: 'POST',
         headers: { 
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-CSRFToken": csrftoken 
+            'Content-Type': 'application/json'
         },
-        body: `session_id=${sessionId}`
+        body: JSON.stringify({
+            total_questions: totalQuestions,
+            correct_answers: correctAnswers
+        })
     }).then(res => res.json())
         .then(data => {
-            alert(`Exam submitted successfully!`);
-            window.location.href = "/";
+            if (data.status === 'success') {
+                alert(`Exam submitted successfully! Your score: ${data.score}%`);
+                // Redirect to results page
+                window.location.href = data.redirect_url;
+            } else {
+                alert('Error: ' + data.message);
+            }
         })
         .catch(err => {
             alert("Submission failed. Please check your connection.");

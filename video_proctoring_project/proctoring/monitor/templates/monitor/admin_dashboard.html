@@ -110,10 +110,33 @@ img.candidate-photo { width: 40px; height: 40px; border-radius: 50%; object-fit:
         <a href="#" style="color: inherit;"><i class="fas fa-bell" title="Notifications"></i></a>
         <a href="#" style="color: inherit;"><i class="fas fa-cog" title="Settings"></i></a>
         <a href="#" style="color: inherit;"><i class="fas fa-user-circle" title="Profile"></i></a>
+        <a href="{% url 'logout' %}" style="color: inherit; text-decoration:none; margin-left:1rem;" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
     </div>
 </header>
 
 <div class="container">
+    <!-- Exam Control Panel (Toggle Start/Stop) -->
+    <div class="card mb-4" style="border-left:5px solid #8B5CF6;">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="m-0" style="color:#444; font-weight:600;">Exam Control</h3>
+            <span id="scheduleStatus" class="badge bg-secondary">Loading…</span>
+        </div>
+        <div class="row g-3 mt-3">
+            <div class="col-md-6 d-flex align-items-center">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="examActiveToggle">
+                    <label class="form-check-label ms-2" for="examActiveToggle">Exam Active</label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Default Duration (minutes) when starting</label>
+                <input type="number" id="durationMinutes" class="form-control" min="5" step="5" value="60" />
+            </div>
+        </div>
+        <div class="mt-2 text-muted" id="currentScheduleInfo"></div>
+    </div>
     <div class="cards">
         <div class="card" id="total-candidates-card">
             <div class="card-icon-wrapper"><i class="fas fa-user-graduate"></i></div>
@@ -326,6 +349,62 @@ async function loadDashboard() {
 
 setInterval(loadDashboard, 5000);
 loadDashboard();
+
+// ---------------------------
+// Exam Toggle: Load/Set APIs
+// ---------------------------
+async function loadSchedule(){
+    try{
+        const res = await fetch('/api/exam-schedule/');
+        if(!res.ok){
+            document.getElementById('scheduleStatus').innerText = 'Unavailable';
+            return;
+        }
+        const data = await res.json();
+        const active = !!(data && data.active);
+        document.getElementById('examActiveToggle').checked = active;
+        if(active){
+            document.getElementById('scheduleStatus').className = 'badge bg-success';
+            document.getElementById('scheduleStatus').innerText = 'Active';
+            const info = (data.start_time_local && data.end_time_local && data.duration_minutes)
+                ? `Started: ${data.start_time_local} | Ends: ${data.end_time_local} (${data.duration_minutes} mins)`
+                : 'Exam is currently active';
+            document.getElementById('currentScheduleInfo').innerText = info;
+            if(data.duration_minutes){
+                document.getElementById('durationMinutes').value = data.duration_minutes;
+            }
+        } else {
+            document.getElementById('scheduleStatus').className = 'badge bg-secondary';
+            document.getElementById('scheduleStatus').innerText = 'Inactive';
+            document.getElementById('currentScheduleInfo').innerText = 'Exam is currently inactive';
+        }
+    }catch(e){
+        console.error('Failed to load schedule', e);
+    }
+}
+
+document.getElementById('examActiveToggle').addEventListener('change', async (e) => {
+    const active = e.target.checked;
+    const duration = parseInt(document.getElementById('durationMinutes').value || '60', 10);
+    try{
+        const res = await fetch('/api/exam-toggle/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ active, duration_minutes: duration })
+        });
+        const data = await res.json();
+        if(data.status === 'ok'){
+            loadSchedule();
+        } else {
+            alert('Failed to toggle: ' + (data.message || 'unknown error'));
+        }
+    }catch(e){
+        alert('Network error toggling exam');
+    }
+});
+
+// Load initial schedule
+loadSchedule();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

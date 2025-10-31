@@ -51,9 +51,13 @@ urlpatterns = [
     path('api/unblock/', views.proctor_unblock_view, name='proctor_unblock'),
     path('api/mark-step/', views.mark_step_complete, name='mark_step_complete'),  # NEW: Mark exam flow step
     path('api/submit-exam/', views.submit_exam, name='submit_exam'),  # NEW: Submit exam
+    path('api/exam-schedule/', views.get_exam_schedule, name='get_exam_schedule'),  # NEW: Get schedule (admin)
+    path('api/exam-toggle/', views.set_exam_active, name='set_exam_active'),  # NEW: Toggle exam active (admin)
     
     # 5. PROCTOR VIEWS
     path('proctor/view/<int:candidate_id>/', views.proctor_view, name='proctor_view'),
+    # Use API prefix to avoid clashing with Django admin at /admin/
+    path('api/set-exam-schedule/', views.set_exam_schedule, name='set_exam_schedule'),  # Optional: date-based scheduling
     
     # 6. EXAM RESULTS AND CERTIFICATE
     path('result/<int:session_id>/', views.exam_result, name='exam_result'),

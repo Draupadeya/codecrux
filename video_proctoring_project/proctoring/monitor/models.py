@@ -91,3 +91,25 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.get_event_type_display()} - {self.timestamp.strftime('%H:%M:%S')}"
+
+
+# ------------------------------
+# Exam scheduling (admin-controlled)
+# ------------------------------
+class ExamSchedule(models.Model):
+    start_time = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(default=60)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Exam @ {self.start_time} for {self.duration_minutes} mins ({'active' if self.is_active else 'inactive'})"
+
+    @property
+    def end_time(self):
+        from datetime import timedelta
+        return self.start_time + timedelta(minutes=self.duration_minutes)

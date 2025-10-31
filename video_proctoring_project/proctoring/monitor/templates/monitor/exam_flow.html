@@ -938,16 +938,50 @@
                 return;
             }
 
+            // Calculate score
+            const correctAnswers = {
+                q1: 'a',  // Change these to match your correct answers
+                q2: 'b',
+                q3: 'a'
+            };
+            
+            let correct = 0;
+            const totalQuestions = 3;
+            
+            for (let q in mcqAnswers) {
+                if (mcqAnswers[q] === correctAnswers[q]) {
+                    correct++;
+                }
+            }
+            
             // Log exam submission
             logSuspiciousActivity('Exam submitted with MCQ answers: ' + JSON.stringify(mcqAnswers));
             
-            // Show success message
-            alert('✅ Exam submitted successfully!\n\nYour answers have been recorded and will be evaluated by the proctoring system.');
-            
-            // Optionally redirect to dashboard or results page
-            setTimeout(() => {
-                window.location.href = '/student-dashboard/';
-            }, 1500);
+            // Submit to API
+            fetch('/api/submit-exam/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    total_questions: totalQuestions,
+                    correct_answers: correct
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('✅ Exam submitted successfully!\n\nYour score: ' + data.score + '%');
+                    // Redirect to results page
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('❌ Error submitting exam: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Failed to submit exam. Please try again.');
+            });
         });
 
         // ==========================================

@@ -17,7 +17,7 @@ from deepface import DeepFace
 from django.views.decorators.csrf import csrf_protect
 
 # NOTE: Ensure your models are imported correctly from your app's models.py
-from .models import Candidate, Session, Event, StudentProfile
+from .models import Candidate, Session, Event, StudentProfile, ExamSchedule
 from . import analyzer # Assuming 'analyzer' contains analyze_audio/analyze_frame logic
 
 # Get the custom or default User model
@@ -237,6 +237,15 @@ def student_dashboard(request: HttpRequest):
     passed_checks = sum([1 for status in [mic_status, webcam_status, rules_status] if status == 'complete'])
     progress_percent = round((passed_checks / total_checks) * 100) if total_checks > 0 else 0
         
+    # --- 4a. Active Exam Schedule ---
+    from django.utils import timezone
+    tz = timezone.get_current_timezone()
+    schedule = ExamSchedule.objects.filter(is_active=True).order_by('-created_at').first()
+    # Toggle-based control: exam can start if there's any active schedule
+    schedule_start = schedule.start_time if schedule else None
+    schedule_end = schedule.end_time if schedule else None
+    can_start = bool(schedule and schedule.is_active)
+
     context = {
         "session": session, 
         "mic_status": mic_status,
@@ -245,7 +254,12 @@ def student_dashboard(request: HttpRequest):
         "current_username": user.username,
         "passed_checks": passed_checks,
         "total_checks": total_checks,
-        "progress_percent": progress_percent, 
+        "progress_percent": progress_percent,
+        # schedule
+        "schedule": schedule,
+        "schedule_start": schedule_start,
+        "schedule_end": schedule_end,
+        "can_start": can_start,
     }
     
     return render(request, "monitor/student_dashboard.html", context)
@@ -336,10 +350,112 @@ def start_exam(request):
         # If no session ID was found in the browser, or the session object 
         # doesn't exist in the database, redirect the user to setup.
         return redirect('student_dashboard') # Assuming you have this URL name defined
+    
+    # 2. Enforce toggle: allow start only if there's an active schedule
+    schedule = ExamSchedule.objects.filter(is_active=True).order_by('-created_at').first()
+    if not schedule:
+        return redirect('student_dashboard')
         
     # 3. Render the exam template, passing the valid Session object
     # The exam template uses {{ session.id }} and other session attributes.
     return render(request, "monitor/start_exam.html", {"session": session})
+
+
+# ==========================
+# Exam Schedule APIs (Admin)
+# ==========================
+from django.views.decorators.http import require_POST
+
+@staff_member_required
+def get_exam_schedule(request: HttpRequest):
+    from django.utils import timezone
+    schedule = ExamSchedule.objects.filter(is_active=True).order_by('-created_at').first()
+    if not schedule:
+        return JsonResponse({"active": False})
+    start = schedule.start_time
+    end = schedule.end_time
+    # Prepare local-friendly strings
+    start_local = timezone.localtime(start)
+    end_local = timezone.localtime(end)
+    return JsonResponse({
+        "active": True,
+        "start_time_iso": start.isoformat(),
+        "end_time_iso": end.isoformat(),
+        "start_time_local": start_local.strftime('%Y-%m-%d %H:%M'),
+        "end_time_local": end_local.strftime('%Y-%m-%d %H:%M'),
+        "start_time_iso_local": start_local.strftime('%Y-%m-%dT%H:%M'),
+        "duration_minutes": schedule.duration_minutes,
+    })
+
+
+@staff_member_required
+@require_POST
+@csrf_exempt
+def set_exam_schedule(request: HttpRequest):
+    import json
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+    try:
+        payload = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except Exception:
+        payload = {}
+
+    if payload.get('deactivate'):
+        ExamSchedule.objects.filter(is_active=True).update(is_active=False)
+        return JsonResponse({"status": "ok", "message": "Deactivated"})
+
+    start_local = payload.get('start_datetime_local')  # format yyyy-MM-ddTHH:mm (browser local)
+    duration = int(payload.get('duration_minutes') or 60)
+    if not start_local:
+        return JsonResponse({"status": "error", "message": "start_datetime_local required"}, status=400)
+
+    # Parse browser local naive datetime, then make aware using current timezone
+    # Replace 'T' with space to use parse_datetime convenience
+    dt_str = start_local.replace('T', ' ')
+    naive = parse_datetime(dt_str)
+    if not naive:
+        return JsonResponse({"status": "error", "message": "Invalid datetime format"}, status=400)
+    aware = timezone.make_aware(naive, timezone.get_current_timezone())
+
+    # Deactivate previous and create new
+    ExamSchedule.objects.update(is_active=False)
+    schedule = ExamSchedule.objects.create(start_time=aware, duration_minutes=duration, is_active=True)
+
+    return JsonResponse({"status": "ok", "id": schedule.id})
+
+
+# NEW: Simple toggle to start/stop exam without date scheduling
+@staff_member_required
+@require_POST
+@csrf_exempt
+def set_exam_active(request: HttpRequest):
+    """Toggle the exam active state on/off.
+    Body: { "active": true|false, "duration_minutes"?: number }
+    If activating, creates or updates a schedule starting now for given duration (default 60).
+    If deactivating, marks all schedules inactive.
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except Exception:
+        payload = {}
+
+    active = bool(payload.get('active'))
+    duration = int(payload.get('duration_minutes') or 60)
+
+    from django.utils import timezone
+
+    if not active:
+        ExamSchedule.objects.update(is_active=False)
+        return JsonResponse({"status": "ok", "active": False})
+
+    # Activate: make others inactive, then create a fresh active window from now
+    ExamSchedule.objects.update(is_active=False)
+    schedule = ExamSchedule.objects.create(
+        start_time=timezone.now(),
+        duration_minutes=duration,
+        is_active=True
+    )
+    return JsonResponse({"status": "ok", "active": True, "id": schedule.id})
 
 
 # ==========================
@@ -628,15 +744,24 @@ def report_event(request):
         else:
             # If no session_id provided, try to get/create one for current user
             from django.utils import timezone
-            candidate, _ = Candidate.objects.get_or_create(
-                user=request.user,
-                defaults={'status': 'active'}
-            )
-            session, _ = Session.objects.get_or_create(
-                candidate=candidate,
-                status='active',
-                defaults={'started_at': timezone.now()}
-            )
+            
+            # Get candidate through StudentProfile -> roll_number
+            try:
+                profile = getattr(request.user, 'studentprofile', None)
+                if profile and hasattr(profile, 'roll_number'):
+                    candidate = Candidate.objects.get(roll_number=profile.roll_number)
+                    session = Session.objects.filter(candidate=candidate, active=True).first()
+                    
+                    if not session:
+                        session = Session.objects.create(
+                            candidate=candidate,
+                            active=True,
+                            started_at=timezone.now()
+                        )
+                else:
+                    return JsonResponse({"error": "Student profile not found"}, status=400)
+            except Candidate.DoesNotExist:
+                return JsonResponse({"error": "Candidate not found"}, status=404)
     except Exception as e:
         print(f"Session error: {e}")
         return JsonResponse({"error": f"Session error: {str(e)}"}, status=400)
@@ -858,7 +983,11 @@ def mark_step_complete(request: HttpRequest):
         if not session_id:
             return JsonResponse({'status': 'error', 'message': 'No active session'}, status=400)
         
-        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        # Fetch session and authorize it belongs to the logged-in student via roll_number
+        session = Session.objects.get(id=session_id)
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile or not session.candidate or session.candidate.roll_number != profile.roll_number:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
         
         if step == 'mic':
             session.mic_tested = True
@@ -898,7 +1027,11 @@ def submit_exam(request: HttpRequest):
         if not session_id:
             return JsonResponse({'status': 'error', 'message': 'No active session'}, status=400)
         
-        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        # Fetch session and authorize it belongs to the logged-in student via roll_number
+        session = Session.objects.get(id=session_id)
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile or not session.candidate or session.candidate.roll_number != profile.roll_number:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
         
         # Update session with exam results
         session.exam_completed = True
@@ -932,7 +1065,10 @@ def submit_exam(request: HttpRequest):
 def exam_result(request: HttpRequest, session_id):
     """Display exam results and certificate preview."""
     try:
-        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        session = Session.objects.get(id=session_id)
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile or not session.candidate or session.candidate.roll_number != profile.roll_number:
+            return redirect('student_dashboard')
         
         if not session.exam_completed:
             return redirect('student_dashboard')
@@ -981,7 +1117,10 @@ def generate_certificate(request: HttpRequest, session_id):
         from django.http import HttpResponse
         import io
         
-        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        session = Session.objects.get(id=session_id)
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile or not session.candidate or session.candidate.roll_number != profile.roll_number:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
         
         if not session.exam_completed or not session.exam_score or session.exam_score < 60:
             return JsonResponse({'status': 'error', 'message': 'Certificate not available'}, status=400)
@@ -1073,7 +1212,10 @@ def generate_certificate(request: HttpRequest, session_id):
 def preview_certificate(request: HttpRequest, session_id):
     """Preview certificate as HTML before downloading PDF."""
     try:
-        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        session = Session.objects.get(id=session_id)
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile or not session.candidate or session.candidate.roll_number != profile.roll_number:
+            return redirect('student_dashboard')
         
         if not session.exam_completed or not session.exam_score or session.exam_score < 60:
             return JsonResponse({'status': 'error', 'message': 'Certificate not available'}, status=400)
