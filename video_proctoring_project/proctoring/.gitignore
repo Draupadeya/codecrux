@@ -1,0 +1,4 @@
+.env
+.dist
+venv
+db.sqlite3

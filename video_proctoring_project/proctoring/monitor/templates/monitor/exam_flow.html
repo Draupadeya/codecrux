@@ -1,0 +1,1162 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Proctoring Flow</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+    
+    <!-- Face Detection Library -->
+    <script async src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            min-height: 100vh;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .exam-flow-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        /* ---- STEP INDICATOR ---- */
+        .step-indicator {
+            background: linear-gradient(90deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 120px;
+            position: relative;
+        }
+
+        .step-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-circle {
+            background: #ffc107;
+            color: #000;
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+        }
+
+        .step.completed .step-circle {
+            background: #28a745;
+        }
+
+        .step-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* Step connectors */
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 25px;
+            left: 60%;
+            width: 40%;
+            height: 3px;
+            background: rgba(255,255,255,0.2);
+            z-index: -1;
+        }
+
+        .step:last-child::after {
+            display: none;
+        }
+
+        .step.completed::after {
+            background: #28a745;
+        }
+
+        /* ---- STEP CONTENT ---- */
+        .step-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .step-content.active {
+            display: flex;
+        }
+
+        .step-content h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .step-content p {
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 500px;
+        }
+
+        /* ---- BUTTONS ---- */
+        .step-button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn-next, .btn-back {
+            padding: 12px 30px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-next {
+            background: #1a73e8;
+            color: white;
+        }
+
+        .btn-next:hover:not(:disabled) {
+            background: #0d47a1;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26, 115, 232, 0.4);
+        }
+
+        .btn-next:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-back {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background: #5a6268;
+        }
+
+        /* ---- STATUS MESSAGES ---- */
+        .status-msg {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status-msg.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-msg.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-msg.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* ---- MIC/WEBCAM PREVIEW ---- */
+        .media-preview {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        #micTestVideo, #webcamTestVideo {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        /* ---- RULES CONTENT ---- */
+        .rules-list {
+            text-align: left;
+            max-width: 600px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .rules-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+
+        .rules-list li:last-child {
+            border-bottom: none;
+        }
+
+        .rules-list li i {
+            color: #1a73e8;
+            margin-right: 10px;
+            min-width: 20px;
+        }
+
+        /* Checkbox for rules acceptance */
+        .accept-checkbox {
+            margin-top: 20px;
+        }
+
+        .accept-checkbox input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .accept-checkbox label {
+            cursor: pointer;
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* ---- HIDDEN IFRAME FOR EXAM ---- */
+        .exam-iframe-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #examIframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Anti-cheat warnings */
+        .anti-cheat-warning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            z-index: 9999;
+            display: none;
+            animation: slideDown 0.3s ease-in;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;" ondragstart="return false;">
+    <!-- Anti-cheat warning banner -->
+    <div class="anti-cheat-warning" id="antiCheatWarning">
+        ⚠️ Suspicious Activity Detected - Tab Switch, Developer Tools, or Fullscreen Exit
+    </div>
+
+    <div class="exam-flow-container">
+        <!-- STUDENT IDENTIFICATION HEADER -->
+        <div style="background: linear-gradient(90deg, #1a73e8, #0d47a1); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.3rem; font-weight: 700;">🎓 Proctored Exam</h3>
+            </div>
+            <div style="text-align: right; font-size: 0.95rem;">
+                <div><strong>Student Name:</strong> <span id="studentName">{% if request.user.first_name %}{{ request.user.first_name }} {{ request.user.last_name }}{% else %}{{ request.user.username }}{% endif %}</span></div>
+                <div style="margin-top: 5px;"><strong>Roll No:</strong> <span id="studentRollNo">{% if request.user.profile.roll_no %}{{ request.user.profile.roll_no }}{% else %}N/A{% endif %}</span></div>
+                <div style="margin-top: 5px; color: #ffeb3b;"><strong>Time:</strong> <span id="examTime">00:00</span></div>
+            </div>
+        </div>
+
+        <!-- STEP INDICATOR -->
+        <div class="step-indicator">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Mic Check</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Webcam Check</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Read Rules</div>
+            </div>
+            <div class="step" data-step="4">
+                <div class="step-circle">4</div>
+                <div class="step-label">Start Exam</div>
+            </div>
+        </div>
+
+        <!-- STEP CONTENT -->
+        <div class="step-content active" id="step1">
+            <h2>🎤 Microphone Check</h2>
+            <p>Click "Start Test" to check if your microphone is working properly.</p>
+            <button id="startMicTest" class="btn btn-primary btn-lg" style="margin-top: 20px;">
+                <i class="fas fa-microphone"></i> Start Mic Test
+            </button>
+            <div id="micStatus" class="status-msg" style="display: none;"></div>
+            <div class="step-button-group" style="margin-top: 50px;">
+                <button class="btn-next" id="nextFromMic" disabled>Next Step →</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step2">
+            <h2>📷 Webcam Check & Face Detection</h2>
+            <p>Your webcam will start automatically. <strong>Only YOU should be visible</strong> - no other people allowed.</p>
+            <p style="color: #dc3545; font-weight: 600;">⚠️ Exam will be blocked if camera is closed or more than one person is detected.</p>
+            <div class="media-preview">
+                <video id="webcamTestVideo" autoplay playsinline muted></video>
+                <canvas id="faceCanvas" style="display: none;"></canvas>
+            </div>
+            <p id="webcamStatus" style="color: #666; margin-top: 10px; font-weight: 600;">Initializing webcam and face detection...</p>
+            
+            <!-- Face Detection Status -->
+            <div id="faceDetectionStatus" style="background: #f0f0f0; padding: 15px; border-radius: 8px; margin-top: 15px; display: none;">
+                <div id="faceCount" style="font-size: 1.1rem; margin: 10px 0;">
+                    👤 Faces Detected: <span id="faceCountNumber" style="font-weight: 700; color: #1a73e8;">0</span>
+                </div>
+                <div id="faceWarning" style="background: #fff3cd; border: 2px solid #ff9800; padding: 10px; border-radius: 4px; margin-top: 10px; display: none;">
+                    ⚠️ <strong>Warning:</strong> <span id="warningMessage"></span>
+                </div>
+                <div id="faceSuccess" style="background: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; color: #155724;">
+                    ✅ <strong>Perfect!</strong> Exactly 1 person detected. You may proceed.
+                </div>
+            </div>
+            
+            <div class="step-button-group" style="margin-top: 30px;">
+                <button class="btn-back" id="backFromWebcam">← Back</button>
+                <button class="btn-next" id="nextFromWebcam" disabled>Next Step →</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step3">
+            <h2>📋 Exam Rules & Requirements</h2>
+            <p>Please read all rules carefully before starting the exam.</p>
+            <div class="rules-list">
+                <ul>
+                    <li><i class="fas fa-ban"></i> No mobile phones or smartwatches allowed</li>
+                    <li><i class="fas fa-desktop"></i> Workspace must be clear of notes and books</li>
+                    <li><i class="fas fa-search"></i> No screen sharing or external monitors allowed</li>
+                    <li><i class="fas fa-video"></i> Your face must remain fully visible on webcam</li>
+                    <li><i class="fas fa-users"></i> No other people or pets in the room</li>
+                    <li><i class="fas fa-eye"></i> Do not look away from the screen excessively</li>
+                    <li><i class="fas fa-comments-slash"></i> No talking or communication with others</li>
+                    <li><i class="fas fa-microphone"></i> Minimize background noise</li>
+                    <li><i class="fas fa-sign-out-alt"></i> You cannot leave your seat once exam starts</li>
+                    <li><i class="fas fa-ban"></i> Tab switching and fullscreen exit will be flagged</li>
+                </ul>
+            </div>
+            <div class="accept-checkbox">
+                <input type="checkbox" id="acceptRules">
+                <label for="acceptRules">I have read and accept all exam rules and requirements</label>
+            </div>
+            <div class="step-button-group" style="margin-top: 30px;">
+                <button class="btn-back" id="backFromRules">← Back</button>
+                <button class="btn-next" id="nextFromRules" disabled>Start Exam →</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step4">
+            <h2>✅ Ready to Begin</h2>
+            <p>All checks complete! Click "Enter Exam" to start your proctored exam.</p>
+            <p style="color: #dc3545; font-weight: 600;">⚠️ Your exam will be in fullscreen mode with proctoring active.</p>
+            <p style="font-size: 0.9rem; color: #666;">• Tab switches will be recorded<br>• Developer tools are disabled<br>• Fullscreen exit will be flagged</p>
+            <div class="step-button-group" style="margin-top: 30px;">
+                <button class="btn-back" id="backFromExam">← Back</button>
+                <button class="btn-next" id="startExam" style="background: #28a745; font-size: 1.1rem; padding: 15px 40px;">
+                    <i class="fas fa-play"></i> Enter Exam
+                </button>
+            </div>
+        </div>
+
+        <!-- EXAM CONTENT (Hidden until ready) -->
+        <div class="exam-iframe-container" id="examIframeContainer">
+            <div id="examContent" style="padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100%;">
+                <!-- EXAM HEADER WITH STUDENT INFO & TIMER -->
+                <div style="background: linear-gradient(90deg, #1a73e8, #0d47a1); color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem;"><span id="studentNameHeader">Student</span> - Proctored Exam In Progress</h3>
+                    </div>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <div style="text-align: right; font-size: 0.9rem;">
+                            <div><strong>Elapsed Time:</strong> <span id="elapsedTime">00:00</span></div>
+                        </div>
+                        <!-- LIVE WEBCAM FEED -->
+                        <div style="background: black; border-radius: 8px; overflow: hidden; border: 2px solid #28a745; position: relative;">
+                            <video id="liveWebcamFeed" style="width: 120px; height: 90px; display: block;" autoplay playsinline muted></video>
+                            <div style="position: absolute; top: 2px; right: 2px; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
+                                🔴 LIVE
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXAM CONTENT AREA -->
+                <div style="flex: 1; overflow-y: auto; padding: 30px; background: white;">
+                    <div style="max-width: 1200px; margin: 0 auto;">
+                        <!-- ALERTS FOR MOBILE/SUSPICIOUS ACTIVITY -->
+                        <div id="mobileAlert" style="background: #fff3cd; border: 2px solid #ff9800; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+                            <i class="fas fa-mobile-alt"></i> <strong>Mobile Device Detected:</strong> This exam should be taken on a desktop/laptop for optimal proctoring. Mobile exams have limited monitoring capabilities.
+                        </div>
+
+                        <div id="suspiciousActivityAlert" style="background: #ffebee; border: 2px solid #dc3545; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>⚠️ Suspicious Activity Logged:</strong> Tab switch, Developer Tools, or Fullscreen exit detected. All activities are being recorded.
+                        </div>
+
+                        <!-- EXAM TABS -->
+                        <div style="margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; display: flex; gap: 0;">
+                            <button id="mcqTabBtn" style="background: #1a73e8; color: white; padding: 12px 25px; border: none; cursor: pointer; font-weight: 600; border-radius: 4px 0 0 0;">📋 MCQ Questions (Knowledge-Based)</button>
+                            <button id="codingTabBtn" style="background: #e0e0e0; color: #333; padding: 12px 25px; border: none; cursor: pointer; font-weight: 600;">💻 Coding Challenge (Practical)</button>
+                        </div>
+
+                        <!-- MCQ SECTION -->
+                        <div id="mcqSection" style="display: block;">
+                            <h2 style="color: #1a73e8; margin-bottom: 20px;">Multiple Choice Questions</h2>
+                            
+                            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1a73e8; margin-bottom: 20px;">
+                                <h4>Question 1: What is the primary use of a database?</h4>
+                                <div style="margin-top: 15px;">
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q1" value="a"> a) Storing and organizing data</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q1" value="b"> b) Running applications</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q1" value="c"> c) Displaying web pages</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q1" value="d"> d) Creating user interfaces</label>
+                                </div>
+                            </div>
+
+                            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1a73e8; margin-bottom: 20px;">
+                                <h4>Question 2: Which of the following is a relational database?</h4>
+                                <div style="margin-top: 15px;">
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q2" value="a"> a) MongoDB</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q2" value="b"> b) MySQL</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q2" value="c"> c) Redis</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q2" value="d"> d) Cassandra</label>
+                                </div>
+                            </div>
+
+                            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1a73e8; margin-bottom: 20px;">
+                                <h4>Question 3: What does SQL stand for?</h4>
+                                <div style="margin-top: 15px;">
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q3" value="a"> a) Structured Query List</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q3" value="b"> b) Structured Query Language</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q3" value="c"> c) Simple Query Language</label>
+                                    <label style="display: block; margin: 10px 0;"><input type="radio" name="q3" value="d"> d) System Query Language</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CODING SECTION -->
+                        <div id="codingSection" style="display: none;">
+                            <h2 style="color: #1a73e8; margin-bottom: 20px;">Coding Challenge</h2>
+                            
+                            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00aa00;">
+                                <h4>🎯 Problem: Write a Function to Reverse a String</h4>
+                                <p style="margin-top: 10px; font-family: monospace; background: white; padding: 15px; border-radius: 4px;">
+                                    Write a function that takes a string as input and returns the reversed string.<br>
+                                    <strong>Example:</strong> input = "hello" → output = "olleh"<br>
+                                    <strong>Time Limit:</strong> O(n)<br>
+                                    <strong>Language:</strong> Choose Python, JavaScript, Java, or C++
+                                </p>
+                            </div>
+
+                            <!-- CODE EDITOR -->
+                            <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #1a73e8; margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Select Language:</label>
+                                <select id="languageSelect" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; width: 200px;">
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="java">Java</option>
+                                    <option value="cpp">C++</option>
+                                </select>
+
+                                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Your Code:</label>
+                                <textarea id="codeEditor" style="width: 100%; height: 300px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; background: #f9f9f9;" placeholder="Write your code here...">def reverseString(s):
+    # Your code here
+    pass
+</textarea>
+
+                                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                    <button id="runCodeBtn" style="background: #00aa00; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">▶ Run Code</button>
+                                    <button id="submitCodeBtn" style="background: #1a73e8; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">✓ Submit Code</button>
+                                </div>
+
+                                <div id="codeOutput" style="background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 4px; margin-top: 15px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 200px; overflow-y: auto; display: none;">
+                                    <!-- Output will appear here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUBMIT EXAM SECTION -->
+                        <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f0f0f0; border-radius: 8px;">
+                            <button id="submitExamBtn" style="background-color: #28a745; color: white; padding: 15px 50px; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer;">
+                                ✓ SUBMIT EXAM
+                            </button>
+                            <p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+                                📌 Ensure all questions are answered before submitting<br>
+                                ⚠️ You cannot change your answers after submission
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // STEP MANAGEMENT
+        // ==========================================
+        let currentStep = 1;
+        const maxSteps = 4;
+        const completedSteps = new Set();
+
+        function showStep(stepNum) {
+            // Hide all steps
+            document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+            
+            // Show current step
+            document.getElementById('step' + stepNum).classList.add('active');
+            
+            // Update step indicators
+            document.querySelectorAll('.step').forEach(el => {
+                const step = parseInt(el.dataset.step);
+                el.classList.remove('active');
+                if (step === stepNum) {
+                    el.classList.add('active');
+                }
+            });
+            
+            currentStep = stepNum;
+        }
+
+        function markStepComplete(stepNum) {
+            completedSteps.add(stepNum);
+            const stepEl = document.querySelector(`.step[data-step="${stepNum}"]`);
+            stepEl.classList.add('completed');
+        }
+
+        function goToStep(stepNum) {
+            if (stepNum >= 1 && stepNum <= maxSteps) {
+                showStep(stepNum);
+                window.scrollTo(0, 0);
+            }
+        }
+
+        // ==========================================
+        // STEP 1: MICROPHONE TEST
+        // ==========================================
+        document.getElementById('startMicTest').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                
+                const statusEl = document.getElementById('micStatus');
+                statusEl.innerHTML = '✅ Microphone is working!';
+                statusEl.className = 'status-msg success';
+                statusEl.style.display = 'block';
+                
+                markStepComplete(1);
+                document.getElementById('nextFromMic').disabled = false;
+            } catch (err) {
+                const statusEl = document.getElementById('micStatus');
+                statusEl.innerHTML = '❌ Microphone not detected. Please check permissions.';
+                statusEl.className = 'status-msg error';
+                statusEl.style.display = 'block';
+            }
+        });
+
+        document.getElementById('nextFromMic').addEventListener('click', () => goToStep(2));
+
+        // ==========================================
+        // STEP 2: WEBCAM TEST WITH FACE DETECTION
+        // ==========================================
+        let faceDetectionInterval = null;
+        
+        async function startWebcamTest() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('webcamTestVideo');
+                video.srcObject = stream;
+                window.webcamStream = stream;
+                
+                document.getElementById('webcamStatus').innerHTML = '🔍 Webcam active - analyzing faces...';
+                document.getElementById('webcamStatus').style.color = '#1a73e8';
+                document.getElementById('faceDetectionStatus').style.display = 'block';
+                
+                // Load face detection model and start monitoring
+                await loadFaceDetectionModel();
+                startFaceDetection();
+                
+            } catch (err) {
+                document.getElementById('webcamStatus').innerHTML = '❌ Webcam not found. Please check permissions.';
+                document.getElementById('webcamStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Load face-api.js model
+        async function loadFaceDetectionModel() {
+            try {
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+                if (typeof faceapi !== 'undefined') {
+                    await faceapi.nets.tinyFaceDetector.load(MODEL_URL);
+                    console.log('✅ Face detection model loaded');
+                }
+            } catch (err) {
+                console.error('Error loading face detection model:', err);
+            }
+        }
+
+        // Continuous face detection during webcam check
+        function startFaceDetection() {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            
+            faceDetectionInterval = setInterval(async () => {
+                try {
+                    const video = document.getElementById('webcamTestVideo');
+                    const canvas = document.getElementById('faceCanvas');
+                    
+                    if (typeof faceapi !== 'undefined' && video.readyState === video.HAVE_ENOUGH_DATA) {
+                        // Detect faces
+                        const detections = await faceapi.detectAllFaces(video, 
+                            new faceapi.TinyFaceDetectorOptions());
+                        
+                        const faceCount = detections.length;
+                        document.getElementById('faceCountNumber').textContent = faceCount;
+                        
+                        // Update status based on face count
+                        const warningDiv = document.getElementById('faceWarning');
+                        const successDiv = document.getElementById('faceSuccess');
+                        
+                        if (faceCount === 0) {
+                            warningDiv.style.display = 'block';
+                            successDiv.style.display = 'none';
+                            document.getElementById('warningMessage').innerHTML = 'No faces detected. Please make sure you are visible in the camera.';
+                            document.getElementById('nextFromWebcam').disabled = true;
+                            logSuspiciousActivity('Face detection: No face detected');
+                            
+                        } else if (faceCount === 1) {
+                            warningDiv.style.display = 'none';
+                            successDiv.style.display = 'block';
+                            document.getElementById('nextFromWebcam').disabled = false;
+                            markStepComplete(2);
+                            
+                        } else if (faceCount > 1) {
+                            warningDiv.style.display = 'block';
+                            successDiv.style.display = 'none';
+                            document.getElementById('warningMessage').innerHTML = `⚠️ ${faceCount} people detected! Only one person is allowed. Please ask others to leave.`;
+                            document.getElementById('nextFromWebcam').disabled = true;
+                            logSuspiciousActivity(`Face detection: Multiple people detected (${faceCount})`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Face detection error:', err);
+                }
+            }, 1000); // Check every 1 second
+        }
+
+        // Start webcam when entering step 2
+        document.getElementById('nextFromMic').addEventListener('click', () => {
+            setTimeout(startWebcamTest, 300);
+        });
+
+        document.getElementById('backFromWebcam').addEventListener('click', () => {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            goToStep(1);
+        });
+        
+        document.getElementById('nextFromWebcam').addEventListener('click', () => {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            goToStep(3);
+        });
+
+        // ==========================================
+        // STEP 3: RULES ACCEPTANCE
+        // ==========================================
+        document.getElementById('acceptRules').addEventListener('change', (e) => {
+            document.getElementById('nextFromRules').disabled = !e.target.checked;
+            if (e.target.checked) {
+                markStepComplete(3);
+            }
+        });
+
+        document.getElementById('backFromRules').addEventListener('click', () => {
+            // Stop webcam when going back
+            if (window.webcamStream) {
+                window.webcamStream.getTracks().forEach(track => track.stop());
+            }
+            goToStep(2);
+        });
+
+        document.getElementById('nextFromRules').addEventListener('click', () => goToStep(4));
+
+        // ==========================================
+        // STEP 4: START EXAM
+        // ==========================================
+        document.getElementById('backFromExam').addEventListener('click', () => goToStep(3));
+
+        document.getElementById('startExam').addEventListener('click', () => {
+            markStepComplete(4);
+            startProctorExam();
+        });
+
+        // ==========================================
+        // PROCTORING CONTROLS
+        // ==========================================
+        function startProctorExam() {
+            // Enter fullscreen
+            const iframeContainer = document.getElementById('examIframeContainer');
+            const elem = document.documentElement;
+            
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {
+                    alert('Could not enter fullscreen. Please try again.');
+                    return;
+                });
+            }
+            
+            // Show exam iframe
+            document.querySelector('.step-indicator').style.display = 'none';
+            document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
+            iframeContainer.style.display = 'block';
+            
+            // Start proctoring
+            startProctoring();
+        }
+
+        // ==========================================
+        // LIVE WEBCAM FEED DURING EXAM
+        // ==========================================
+        async function startLiveWebcamFeed() {
+            try {
+                const video = document.getElementById('liveWebcamFeed');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                });
+                video.srcObject = stream;
+                window.liveWebcamStream = stream;
+                
+                // Mobile detection
+                detectMobileDevice();
+                
+                console.log('✅ Live webcam feed started');
+            } catch (err) {
+                console.error('❌ Webcam error:', err);
+                document.getElementById('liveWebcamFeed').style.background = '#ff0000';
+            }
+        }
+
+        // ==========================================
+        // MOBILE DEVICE DETECTION
+        // ==========================================
+        function detectMobileDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isMobile = /mobile|tablet|android|iphone|ipad|ipod|blackberry|windows phone|opera mini|opera mobi/.test(userAgent);
+            
+            // Check screen size
+            const isSmallScreen = window.innerWidth < 768;
+            
+            // Check for touch device
+            const isTouchDevice = () => {
+                return (('ontouchstart' in window) ||
+                        (navigator.maxTouchPoints > 0) ||
+                        (navigator.msMaxTouchPoints > 0));
+            };
+            
+            if (isMobile || isSmallScreen || isTouchDevice()) {
+                document.getElementById('mobileAlert').style.display = 'block';
+                logSuspiciousActivity('Mobile/small screen device detected');
+            }
+        }
+
+        // ==========================================
+        // EXAM TIMER
+        // ==========================================
+        function startExamTimer() {
+            let examStartTime = new Date();
+            
+            setInterval(() => {
+                let now = new Date();
+                let elapsed = Math.floor((now - examStartTime) / 1000);
+                
+                let hours = Math.floor(elapsed / 3600);
+                let minutes = Math.floor((elapsed % 3600) / 60);
+                let seconds = elapsed % 60;
+                
+                let timeStr = String(hours).padStart(2, '0') + ':' + 
+                              String(minutes).padStart(2, '0') + ':' + 
+                              String(seconds).padStart(2, '0');
+                
+                document.getElementById('elapsedTime').textContent = timeStr;
+                document.getElementById('examTime').textContent = timeStr;
+            }, 1000);
+        }
+
+        // ==========================================
+        // CODING EXAM FUNCTIONALITY
+        // ==========================================
+        document.getElementById('mcqTabBtn').addEventListener('click', function() {
+            document.getElementById('mcqSection').style.display = 'block';
+            document.getElementById('codingSection').style.display = 'none';
+            this.style.background = '#1a73e8';
+            this.style.color = 'white';
+            document.getElementById('codingTabBtn').style.background = '#e0e0e0';
+            document.getElementById('codingTabBtn').style.color = '#333';
+        });
+
+        document.getElementById('codingTabBtn').addEventListener('click', function() {
+            document.getElementById('mcqSection').style.display = 'none';
+            document.getElementById('codingSection').style.display = 'block';
+            this.style.background = '#1a73e8';
+            this.style.color = 'white';
+            document.getElementById('mcqTabBtn').style.background = '#e0e0e0';
+            document.getElementById('mcqTabBtn').style.color = '#333';
+        });
+
+        // Run code in browser (simple execution simulation)
+        document.getElementById('runCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('languageSelect').value;
+            const outputDiv = document.getElementById('codeOutput');
+            
+            outputDiv.style.display = 'block';
+            outputDiv.innerHTML = '▶ Running ' + language + ' code...<br>';
+            
+            logSuspiciousActivity('Code execution initiated - ' + language);
+            
+            try {
+                if (language === 'python') {
+                    outputDiv.innerHTML += '⚠️ Python execution requires backend support<br>Output:<br>Hello, World!';
+                } else if (language === 'javascript') {
+                    // Simple JavaScript eval (in real exam, send to backend)
+                    let output = '';
+                    const log = console.log;
+                    console.log = function(msg) {
+                        output += msg + '<br>';
+                    };
+                    
+                    eval(code);
+                    console.log = log;
+                    
+                    outputDiv.innerHTML += output || 'Code executed successfully';
+                }
+            } catch (err) {
+                outputDiv.innerHTML += '❌ Error: ' + err.message;
+            }
+        });
+
+        document.getElementById('submitCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeEditor').value;
+            if (code.trim().length === 0) {
+                alert('⚠️ Please write some code before submitting');
+                return;
+            }
+            alert('✅ Code submitted for evaluation');
+            logSuspiciousActivity('Code submitted - ' + document.getElementById('languageSelect').value);
+        });
+
+        // ==========================================
+        // SUBMIT EXAM HANDLER
+        // ==========================================
+        document.getElementById('submitExamBtn').addEventListener('click', function() {
+            const mcqAnswers = {
+                q1: document.querySelector('input[name="q1"]:checked')?.value,
+                q2: document.querySelector('input[name="q2"]:checked')?.value,
+                q3: document.querySelector('input[name="q3"]:checked')?.value
+            };
+
+            const unanswered = Object.values(mcqAnswers).filter(v => !v).length;
+            
+            if (unanswered > 0) {
+                alert(`⚠️ You have ${unanswered} unanswered MCQ question(s). Please answer all before submitting.`);
+                return;
+            }
+
+            const code = document.getElementById('codeEditor').value;
+            if (code.trim().length === 0) {
+                alert('⚠️ Please write some code in the coding challenge before submitting.');
+                return;
+            }
+
+            // Log exam submission
+            logSuspiciousActivity('Exam submitted with MCQ answers: ' + JSON.stringify(mcqAnswers));
+            
+            // Show success message
+            alert('✅ Exam submitted successfully!\n\nYour answers have been recorded and will be evaluated by the proctoring system.');
+            
+            // Optionally redirect to dashboard or results page
+            setTimeout(() => {
+                window.location.href = '/student-dashboard/';
+            }, 1500);
+        });
+
+        // ==========================================
+        // CONTINUOUS FACE DETECTION DURING EXAM
+        // ==========================================
+        function startContinuousFaceMonitoring() {
+            if (examFaceDetectionInterval) clearInterval(examFaceDetectionInterval);
+            
+            examFaceDetectionInterval = setInterval(async () => {
+                try {
+                    const video = document.getElementById('liveWebcamFeed');
+                    
+                    if (typeof faceapi !== 'undefined' && video.readyState === video.HAVE_ENOUGH_DATA) {
+                        const detections = await faceapi.detectAllFaces(video,
+                            new faceapi.TinyFaceDetectorOptions());
+                        
+                        const faceCount = detections.length;
+                        
+                        if (faceCount === 0) {
+                            // No face detected - camera closed or student out of view
+                            logSuspiciousActivity('CRITICAL: No face detected during exam - camera closed or out of view');
+                            showAntiCheatWarning('❌ CAMERA BLOCKED: No face detected. Please ensure camera is on and you are visible.');
+                            
+                        } else if (faceCount > 1) {
+                            // Multiple faces detected
+                            logSuspiciousActivity(`CRITICAL: Multiple faces detected during exam (${faceCount} people)`);
+                            showAntiCheatWarning(`❌ MULTIPLE PEOPLE DETECTED: ${faceCount} people found. Only you are allowed.`);
+                        }
+                        
+                    }
+                } catch (err) {
+                    // Silently fail - face detection might not be available
+                }
+            }, 2000); // Check every 2 seconds
+        }
+
+        // ==========================================
+        // ANTI-CHEAT MEASURES
+        // ==========================================
+        let examFaceDetectionInterval = null;
+        
+        function startProctoring() {
+            // Start live webcam feed
+            startLiveWebcamFeed();
+            
+            // Start timer
+            startExamTimer();
+            
+            // START CONTINUOUS FACE DETECTION DURING EXAM
+            startContinuousFaceMonitoring();
+            
+            // 1. PREVENT DEVELOPER TOOLS
+            preventDevTools();
+            
+            // 2. MONITOR TAB VISIBILITY
+            monitorTabSwitch();
+            
+            // 3. MONITOR FULLSCREEN
+            monitorFullscreen();
+            
+            // 4. DISABLE CONTEXT MENU & RIGHT CLICK
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Right-click attempted');
+                return false;
+            });
+            
+            // 5. BLOCK COPY/PASTE
+            document.addEventListener('copy', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Copy attempt blocked');
+            });
+            
+            document.addEventListener('paste', (e) => {
+                e.preventDefault();
+                logSuspiciousActivity('Paste attempt blocked');
+            });
+
+            // 6. DISABLE KEYBOARD SHORTCUTS
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+A (Select All) - Allow but log
+                if (e.ctrlKey && e.key === 'a') {
+                    logSuspiciousActivity('Ctrl+A (Select All) attempted');
+                }
+                // Ctrl+S (Save) - Prevent
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+S (Save) blocked');
+                }
+            });
+
+            console.log('🔒 Proctoring system active with live webcam feed');
+        }
+
+        function preventDevTools() {
+            // F12
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'F12') {
+                    e.preventDefault();
+                    logSuspiciousActivity('F12 pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+I (Inspect)
+                if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+I pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+C (Inspect Element)
+                if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+C pressed');
+                    return false;
+                }
+                
+                // Ctrl+Shift+J (Console)
+                if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+                    e.preventDefault();
+                    logSuspiciousActivity('Ctrl+Shift+J pressed');
+                    return false;
+                }
+            });
+        }
+
+        function monitorTabSwitch() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    logSuspiciousActivity('Tab switch detected (hidden)');
+                    showAntiCheatWarning('Tab Switch Detected');
+                } else {
+                    logSuspiciousActivity('Tab switch detected (visible)');
+                    showAntiCheatWarning('User returned to tab');
+                }
+            });
+
+            // Also monitor window focus
+            window.addEventListener('blur', () => {
+                logSuspiciousActivity('Window blur (left window)');
+                showAntiCheatWarning('Left exam window');
+            });
+
+            window.addEventListener('focus', () => {
+                logSuspiciousActivity('Window focus (returned)');
+            });
+        }
+
+        function monitorFullscreen() {
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    logSuspiciousActivity('Exited fullscreen');
+                    showAntiCheatWarning('Fullscreen Exit Detected');
+                }
+            });
+        }
+
+        function showAntiCheatWarning(message) {
+            const warning = document.getElementById('antiCheatWarning');
+            warning.textContent = '⚠️ ' + message;
+            warning.style.display = 'block';
+            
+            setTimeout(() => {
+                warning.style.display = 'none';
+            }, 3000);
+        }
+
+        function logSuspiciousActivity(activity) {
+            console.log('[PROCTOR]', activity, new Date().toLocaleTimeString());
+            
+            // Send to backend
+            fetch('{% url "report_event" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    event_type: 'suspicious_activity',
+                    description: activity,
+                    timestamp: new Date().toISOString()
+                })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('✅ Event logged successfully');
+                } else {
+                    response.json().then(data => {
+                        console.error('❌ Failed to log event:', data.error);
+                    });
+                }
+            }).catch(err => console.error('Failed to log event:', err));
+        }
+
+        // ==========================================
+        // CLEANUP ON PAGE UNLOAD
+        // ==========================================
+        window.addEventListener('beforeunload', () => {
+            // Stop all intervals
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            if (examFaceDetectionInterval) clearInterval(examFaceDetectionInterval);
+            
+            // Stop all streams
+            if (window.webcamStream) {
+                window.webcamStream.getTracks().forEach(track => track.stop());
+            }
+            if (window.liveWebcamStream) {
+                window.liveWebcamStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

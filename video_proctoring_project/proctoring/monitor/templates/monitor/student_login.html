@@ -1,0 +1,121 @@
+<style>
+/* --------------------
+    General Styling
+   -------------------- */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f7f6; /* Light, calming background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh; /* Ensures it takes up the full viewport height */
+    margin: 0;
+}
+
+/* --------------------
+    Login Card Styling
+   -------------------- */
+.login-container {
+    background-color: #ffffff; /* White card background */
+    padding: 40px;
+    border-radius: 12px; /* Rounded corners */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    width: 100%;
+    max-width: 380px; /* Constrain the card width */
+    text-align: center;
+}
+
+.login-container h2 {
+    color: #333333;
+    margin-bottom: 30px;
+    font-size: 1.8em;
+    font-weight: 600;
+}
+
+/* --------------------
+    Form Element Styling
+   -------------------- */
+.form-group {
+    margin-bottom: 20px;
+    text-align: left; /* Aligns label to the left */
+}
+
+/* Visually hidden label, kept for accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%; /* Full width of the container */
+    padding: 12px 15px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    box-sizing: border-box; /* Includes padding and border in the element's total width and height */
+    transition: border-color 0.3s, box-shadow 0.3s;
+    font-size: 16px;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+    border-color: #007bff; /* Highlight color on focus */
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    outline: none; /* Remove default focus outline */
+}
+
+/* --------------------
+    Button Styling
+   -------------------- */
+button[type="submit"] {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff; /* Primary action color (e.g., blue) */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+button[type="submit"]:hover {
+    background-color: #0056b3; /* Darker shade on hover */
+}
+
+button[type="submit"]:active {
+    transform: translateY(1px); /* Little press effect */
+}
+</style>
+<link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+
+<div class="login-container">
+    <h2>Student Login</h2>
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="id_username" class="sr-only">Username</label>
+            <input type="text" id="id_username" name="username" placeholder="Enter your Username" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="id_password" class="sr-only">Password</label>
+            <input type="password" id="id_password" name="password" placeholder="Enter your Password" required>
+        </div>
+
+        <button type="submit">Log In Securely</button>
+
+        <p style="margin-top: 20px; font-size: 0.9em;">
+            <a href="/forgot-password" style="color: #007bff; text-decoration: none;">Forgot Password?</a>
+        </p>
+
+    </form>
+</div>

@@ -1,0 +1,486 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Online Proctored Examination</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- Variables --- */
+        :root {
+            --primary-color: #1a73e8;
+            --success-color: #1e8449;
+            --danger-color: #c0392b;
+            --background-color: #f5f7f9;
+            --card-bg: #fff;
+            --sidebar-width: 380px; /* Define a fixed width for the right column for consistency */
+        }
+        body { 
+            background: var(--background-color); 
+            font-family: 'Poppins', sans-serif;
+            color: #333;
+        }
+        /* --- Layout Grid --- */
+        .exam-container { 
+            display: grid; 
+            grid-template-columns: 1fr var(--sidebar-width); 
+            gap: 20px; 
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+        .main-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 0;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            font-weight: 600;
+        }
+        .questions-area {
+            max-height: calc(100vh - 80px); 
+            overflow-y: auto;
+            padding-right: 15px;
+        }
+        
+        /* --- Card Styles --- */
+        .question-card, .tool-card {
+            background: var(--card-bg); 
+            padding: 25px; 
+            margin-bottom: 20px;
+            border-radius: 12px; 
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+        }
+        
+        /* --- Proctoring Area (Right Column) --- */
+        .proctoring-area {
+            position: sticky; 
+            top: 20px; 
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            padding-top: 5px;
+        }
+        
+        /* Webcam/Canvas Styling - Reduced Size for Sidebar */
+        #examCam, #overlay { 
+            width: 100%; 
+            height: auto; /* Allow height to adjust based on width */
+            max-height: 250px; /* Constrain video height */
+            object-fit: cover;
+            border-radius: 8px; 
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1); 
+            transform: scaleX(-1);
+            /* Removed margin-bottom here, rely on parent spacing */
+        }
+        .canvas-container { 
+            position: relative; 
+            width: 100%;
+            padding: 0; /* Remove padding here */
+        }
+        #overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+        }
+
+        /* Timer Styling */
+        .timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--danger-color); 
+            margin-top: 10px;
+        }
+
+        /* Alerts Styling */
+        .alerts { 
+            margin-top: 15px; 
+            max-height: 25vh; /* Adjusted max-height to ensure it scrolls within the card */
+            overflow-y: auto; 
+            padding-right: 5px; 
+        }
+        .alert-event { 
+            padding: 10px; 
+            margin-bottom: 8px; 
+            border-radius: 8px; 
+            font-size: 0.85rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            border-left: 5px solid;
+        }
+        .alert-suspicious { background-color: #fcebeb; color: var(--danger-color); border-left-color: var(--danger-color); }
+        .alert-info { background-color: #e8f5e9; color: var(--success-color); border-left-color: var(--success-color); }
+        .alert-event img { width: 35px; height: 35px; border-radius: 4px; object-fit: cover; } /* For optional event thumbnails */
+        
+        /* Question Navigation Buttons */
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        .nav-btn {
+            background-color: #ddd;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 5px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+        }
+        .nav-btn.answered { background-color: var(--success-color); color: white; }
+        .nav-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+
+    </style>
+    <link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+</head>
+<body>
+
+<div class="main-header">
+    ONLINE PROCTORED EXAMINATION SYSTEM
+</div>
+
+<div class="p-4 exam-container">
+    
+    <div class="questions-area">
+        <h2>📘 Exam Questions</h2>
+        <hr class="mb-4">
+        
+        <form id="examForm">
+            <div class="question-card" id="q1-card">
+                <p><strong>Q1:</strong> What is 2 + 2?</p>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q1" id="q1a" value="3">
+                    <label class="form-check-label" for="q1a">3</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q1" id="q1b" value="4">
+                    <label class="form-check-label" for="q1b">4</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q1" id="q1c" value="5">
+                    <label class="form-check-label" for="q1c">5</label>
+                </div>
+            </div>
+            
+            <div class="question-card" id="q2-card">
+                <p><strong>Q2:</strong> Capital of India?</p>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q2" id="q2a" value="Mumbai">
+                    <label class="form-check-label" for="q2a">Mumbai</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q2" id="q2b" value="Delhi">
+                    <label class="form-check-label" for="q2b">Delhi</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q2" id="q2c" value="Kolkata">
+                    <label class="form-check-label" for="q2c">Kolkata</label>
+                </div>
+            </div>
+            
+            <div class="question-card" id="q3-card">
+                <p><strong>Q3:</strong> Which city is known as the Silicon Valley of India?</p>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q3" id="q3a" value="Chennai">
+                    <label class="form-check-label" for="q3a">Chennai</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="q3" id="q3b" value="Bangalore">
+                    <label class="form-check-label" for="q3b">Bangalore</label>
+                </div>
+            </div>
+            
+            <div class="mt-5 mb-5">
+                <button type="button" id="submitExam" class="btn btn-success w-100 p-3"><i class="fas fa-check-circle me-2"></i> SUBMIT FINAL EXAM</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="proctoring-area">
+        
+        <div class="tool-card text-center bg-light">
+            <p class="mb-1 text-muted"><i class="fas fa-hourglass-half me-1"></i> TIME REMAINING</p>
+            <div class="timer-display" id="examTimer">01:30:00</div>
+        </div>
+
+        <div class="tool-card">
+            <h4 class="mb-3"><i class="fas fa-video me-2"></i> Live Proctoring</h4>
+            
+            <div class="canvas-container">
+                <video id="examCam" autoplay playsinline muted></video>
+                <canvas id="overlay"></canvas>
+            </div>
+            
+            <div class="student-info mt-3 p-3 bg-light rounded">
+              <p><strong><i class="fas fa-user me-2"></i>Candidate:</strong> <span id="student-name">{% if session.candidate %}{{ session.candidate.name }}{% else %}N/A{% endif %}</span></p>
+              <p><strong><i class="fas fa-id-card me-2"></i>Roll No:</strong> <span id="student-roll">{% if session.candidate %}{{ session.candidate.roll_number }}{% else %}N/A{% endif %}</span></p>
+            </div>
+        </div>
+        
+        <div class="tool-card">
+            <h4 class="mb-3"><i class="fas fa-list-ol me-2"></i> Question Palette</h4>
+            <div class="nav-grid" id="question-palette">
+                <a href="#q1-card" class="nav-btn active" data-q="1">1</a>
+                <a href="#q2-card" class="nav-btn answered" data-q="2">2</a>
+                <a href="#q3-card" class="nav-btn" data-q="3">3</a>
+                <a href="#" class="nav-btn" data-q="4">4</a>
+                <a href="#" class="nav-btn" data-q="5">5</a>
+                </div>
+        </div>
+
+        <div class="tool-card">
+            <h4 class="mb-3"><i class="fas fa-exclamation-triangle me-2"></i> Real-Time Alerts</h4>
+            <div class="alerts" id="alerts">
+                <div class="alert-event alert-info"><i class="fa fa-info-circle"></i><span>Session initialized successfully.</span></div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+// NOTE: Ensure your Django views for report_event, end_session, and upload_frame return correct JSON responses.
+
+const video = document.getElementById('examCam');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
+const alertsDiv = document.getElementById('alerts');
+let suspicionCount = 0;
+const maxSuspicious = 3; 
+let tabSwitchCount = 0;
+const maxTabSwitches = 3;
+const sessionId = "{{ session.id|default:'0' }}";
+
+
+// --- Utility Functions ---
+
+// Get the CSRF token from the cookie (used for all fetch requests)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+
+function addAlert(message, type="suspicious", imgSrc=null){
+    const div = document.createElement('div');
+    div.classList.add('alert-event', type === 'suspicious' ? 'alert-suspicious' : 'alert-info');
+    
+    if(imgSrc){
+        const img = document.createElement('img');
+        img.src = imgSrc;
+        div.appendChild(img);
+    }
+    
+    const icon = document.createElement('i');
+    icon.classList.add('fa', type === 'suspicious' ? 'fa-exclamation-circle' : 'fa-info-circle');
+    
+    const text = document.createElement('span');
+    text.innerText = message;
+    
+    div.appendChild(icon);
+    div.appendChild(text);
+    alertsDiv.prepend(div);
+}
+
+function blockStudent() {
+    addAlert("🛑 Maximum suspicious events reached. Blocking student.", "suspicious");
+    
+    fetch("{% url 'report_event' %}", { 
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/x-www-form-urlencoded", 
+            "X-CSRFToken": csrftoken 
+        },
+        body: `session_id=${sessionId}&event_type=blocked&details=${encodeURIComponent("Auto-blocked due to score limit")}`
+    }).then(() => {
+        alert("You are blocked from continuing the exam!");
+        window.location.href = "{% url 'blocked_page' %}";
+    });
+}
+
+function drawBoxes(events){
+    ctx.clearRect(0,0,overlay.width, overlay.height);
+    events.forEach(ev => {
+      if(ev.box){
+        const [x1,y1,x2,y2] = ev.box;
+        ctx.strokeStyle = ev.type === "device_detected" ? "red" : "yellow";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, x2-x1, y2-y1);
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.font = "14px Poppins";
+        ctx.fillText(ev.details, x1, y1 > 16 ? y1-4 : y1+12);
+      }
+    });
+}
+
+
+// --- Proctoring Logic ---
+
+async function captureFrame() {
+    if(video.videoWidth === 0 || video.videoHeight === 0) return setTimeout(captureFrame, 2000);
+    if(sessionId === "0") return console.error("Invalid session ID. Cannot upload frame.");
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; 
+    canvas.height = video.videoHeight;
+    const ctx2 = canvas.getContext('2d');
+    ctx2.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+
+    try {
+        const res = await fetch("{% url 'upload_frame' %}", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrftoken 
+            },
+            body: `frame=${encodeURIComponent(dataURL)}&session_id=${sessionId}`
+        });
+        const data = await res.json();
+
+        if (data.blocked) {
+            return blockStudent();
+        }
+
+        const overlayEvents = [];
+        data.events.forEach(ev => {
+            let img = ev.frame || null; // This `ev.frame` is what would add an image if the backend provides it
+            if(ev.type === "device_detected" || ev.type.includes("face") || ev.type.includes("gaze") || ev.type.includes("audio")){
+                // This `img` argument is for adding a thumbnail from the *alert event itself*, not the live feed.
+                addAlert(`${ev.type.includes("audio") ? "🔊" : ev.type.includes("face") || ev.type.includes("gaze") ? "👤" : "⚡"} ${ev.type.replace('_', ' ').toUpperCase()}: ${ev.details}`, "suspicious", img);
+                if(ev.box_coords) overlayEvents.push({...ev, box: ev.box_coords});
+            } else if (ev.type !== "heartbeat") { 
+                addAlert(`${ev.type.toUpperCase()}: ${ev.details}`, "info");
+            }
+        });
+
+        drawBoxes(overlayEvents);
+    } catch(err){
+        console.error("Frame upload error:", err);
+    }
+
+    setTimeout(captureFrame, 2000);
+}
+
+// Start webcam and audio
+// Adjusted resolution to better fit sidebar
+navigator.mediaDevices.getUserMedia({ video: { width: 360, height: 250 }, audio: true }) 
+    .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            overlay.width = video.videoWidth;
+            overlay.height = video.videoHeight;
+            
+            // Set container size to match the video size
+            document.querySelector('.canvas-container').style.width = video.videoWidth + 'px';
+            document.querySelector('.canvas-container').style.height = video.videoHeight + 'px';
+
+            video.play();
+            captureFrame();
+        };
+    })
+    .catch(err => {
+        addAlert("🛑 ERROR: Webcam/Microphone access is required for the exam! Refresh the page.", "suspicious");
+        console.error("Media access denied:", err);
+    });
+
+// Tab switching detection
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        tabSwitchCount++;
+        addAlert(`⚠️ Tab switched (${tabSwitchCount}/${maxTabSwitches})`, "suspicious");
+        
+        fetch("{% url 'report_event' %}", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrftoken 
+            },
+            body: `session_id=${sessionId}&event_type=tab_switch&details=${encodeURIComponent('User switched tab or minimized window')}&score=1.0`
+        });
+        
+        if (tabSwitchCount >= maxTabSwitches) blockStudent();
+    }
+});
+
+
+// Submit exam
+document.getElementById('submitExam').addEventListener('click', () => {
+    if(sessionId === "0") return alert("Cannot submit exam: invalid session.");
+    
+    if(!confirm("Are you sure you want to submit the exam? This action cannot be undone.")) {
+        return;
+    }
+
+    // Stop the video stream before submitting
+    const stream = video.srcObject;
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+    
+    fetch("{% url 'end_session' %}", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrftoken 
+        },
+        body: `session_id=${sessionId}`
+    }).then(res => res.json())
+        .then(data => {
+            alert(`Exam submitted successfully!`);
+            window.location.href = "/";
+        })
+        .catch(err => {
+            alert("Submission failed. Please check your connection.");
+            console.error("Submission error:", err);
+        });
+});
+
+// --- Timer Countdown Placeholder (Add your actual timer logic here) ---
+function startTimer(duration, display) {
+    let timer = duration, minutes, seconds;
+    setInterval(function () {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        display.textContent = minutes + ":" + seconds;
+
+        if (--timer < 0) {
+            timer = 0;
+            // Optionally auto-submit here
+            // document.getElementById('submitExam').click();
+        }
+    }, 1000);
+}
+
+window.onload = function () {
+    const timeLimit = 60 * 90; // 90 minutes
+    const display = document.querySelector('#examTimer');
+    // startTimer(timeLimit, display); // Uncomment to enable the live timer
+};
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

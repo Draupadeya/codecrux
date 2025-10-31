@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMate</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div id="home-logo-btn" class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19Z" stroke="#4F46E5" stroke-width="2"/><path d="M8 9H16" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/><path d="M8 12H13" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"/></svg>
+            StudyMate
+        </div>
+        <div class="header-actions">
+            <!-- NEW: Theme Toggle Switch -->
+            <div class="theme-switcher">
+                <i class="fas fa-sun"></i>
+                <label class="switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="slider round"></span>
+                </label>
+                <i class="fas fa-moon"></i>
+            </div>
+            <button id="add-course-btn" class="btn btn-primary">+ Add Course</button>
+        </div>
+    </header>
+
+    <main class="content-wrapper">
+        <div id="course-list-view">
+            <div id="courses-container" class="courses-grid"></div>
+            <div id="empty-state-container">
+                 <div class="card empty-state-card">
+                   <div class="empty-state-icon">🖥️</div>
+                   <h2>No Course Plan Yet</h2>
+                   <p>Start learning by adding your course link and create a personalized study plan.</p>
+                   <button id="add-course-plan-btn" class="btn btn-primary">+ Add Course Plan</button>
+                 </div>
+            </div>
+        </div>
+
+        <div id="dashboard-view" class="dashboard-container hidden">
+            <header id="course-header" class="course-header"></header>
+            <section id="progress-overview" class="card"></section>
+            
+            <!-- Video Player and Notes are now in one container -->
+            <section id="video-player-container" class="card hidden">
+                <div id="video-player-iframe-wrapper">
+                    <!-- Iframe will be inserted here by JS -->
+                </div>
+
+                <!-- NEW: Notes Editor Section (Moved) -->
+                <section id="notes-section">
+                    <h2><i class="fas fa-book-open" style="color: var(--primary-color);"></i> My Notes</h2>
+                    <div class="notes-toolbar">
+                        <div class="notes-toolbar-group">
+                            <!-- NEW: Added IDs -->
+                            <button id="notes-bold" class="notes-btn" data-command="bold" title="Bold"><i class="fas fa-bold"></i></button>
+                            <button id="notes-italic" class="notes-btn" data-command="italic" title="Italic"><i class="fas fa-italic"></i></button>
+                            <button id="notes-underline" class="notes-btn" data-command="underline" title="Underline"><i class="fas fa-underline"></i></button>
+                        </div>
+                        <div class="notes-toolbar-group">
+                            <!-- NEW: Added ID -->
+                            <select id="formatBlockSelect" class="notes-select" data-command="formatBlock">
+                                <option value="p">Paragraph</option>
+                                <option value="h3">Heading 3</option>
+                                <option value="h4">Heading 4</option>
+                            </select>
+                            <!-- NEW: Added ID -->
+                            <select id="fontSizeSelect" class="notes-select" data-command="fontSize" title="Font Size">
+                                <option value="3">Normal</option>
+                                <option value="1">Smallest</option>
+                                <option value="2">Small</option>
+                                <option value="4">Medium</option>
+                                <option value="5">Large</option>
+                                <option value="6">Largest</option>
+                                <option value="7">Huge</option>
+                            </select>
+                        </div>
+                        <div class="notes-toolbar-group">
+                            <button class="notes-btn" data-command="justifyLeft" title="Align Left"><i class="fas fa-align-left"></i></button>
+                            <button class="notes-btn" data-command="justifyCenter" title="Align Center"><i class="fas fa-align-center"></i></button>
+                            <button class="notes-btn" data-command="justifyRight" title="Align Right"><i class="fas fa-align-right"></i></button>
+                        </div>
+                        <div class="notes-toolbar-group">
+                             <input type="color" class="notes-color-picker" data-command="foreColor" title="Text Color">
+                        </div>
+                    </div>
+                    <div id="notes-editor" class="notes-editor-area" contenteditable="true"></div>
+                    <div class="notes-actions">
+                        <button id="save-notes-btn" class="btn btn-primary"><i class="fas fa-save"></i> Save Notes</button>
+                        <button id="download-notes-btn" class="btn btn-secondary"><i class="fas fa-download"></i> Download Notes</button>
+                    </div>
+                </section>
+            </section>
+
+            <section id="daily-plan-section">
+                <h2>Daily Study Plan</h2>
+                <div id="daily-plan-list" class="daily-plan-list"></div>
+            </section>
+
+            <!-- ### UPDATED: Module Section ### -->
+            <section id="course-modules-section">
+                <h2 id="module-section-title" class="module-section-header"></h2>
+                <div class="card">
+                    <div class="module-info-grid">
+                        <div class="info-box" id="info-box-video">
+                            <!-- Content injected by JS -->
+                        </div>
+                        <div class="info-box" id="info-box-quiz">
+                            <!-- Content injected by JS -->
+                        </div>
+                        <div class="info-box" id="info-box-total">
+                            <!-- Content injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- NEW: Tabbed Interface -->
+                    <div class="module-tabs">
+                        <button class="module-tab-btn active" data-tab="module-summary-panel">
+                            <i class="fas fa-bookmark"></i> Summary
+                        </button>
+                        <button class="module-tab-btn" data-tab="module-key-points-panel">
+                            <i class="fas fa-star"></i> Key Points
+                        </button>
+                        <button class="module-tab-btn" data-tab="module-quick-notes-panel">
+                            <i class="fas fa-bolt"></i> Quick Notes
+                        </button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div id="module-summary-panel" class="module-tab-content active">
+                        <p id="module-summary-text">Loading summary...</p>
+                    </div>
+
+                    <div id="module-key-points-panel" class="module-tab-content">
+                        <ul id="module-key-points-list" class="key-points-list">
+                            <!-- Key points injected by JS -->
+                        </ul>
+                    </div>
+
+                    <div id="module-quick-notes-panel" class="module-tab-content">
+                        <textarea id="quick-notes-editor" class="quick-notes-editor" placeholder="Jot down quick thoughts, ideas, or timestamps here..."></textarea>
+                        <button id="save-quick-notes-btn" class="btn btn-primary" style="margin-top: 0.5rem; align-self: flex-start;">
+                            <i class="fas fa-save"></i> Save Quick Note
+                        </button>
+                    </div>
+                    <!-- End Tabbed Interface -->
+
+                    <div id="module-actions-container" class="module-actions">
+                        <!-- Buttons injected by JS -->
+                    </div>
+                </div>
+            </section>
+            <!-- ### END UPDATED Module Section ### -->
+        </div>
+    </main>
+
+    <!-- Add Course Modal -->
+    <div id="add-course-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-modal-btn">&times;</button>
+            <h2>Add Course Plan</h2>
+            <form id="add-course-form">
+                <div class="form-group">
+                    <label for="course-title-input">Course Title</label>
+                    <input type="text" id="course-title-input" placeholder="e.g., Advanced JavaScript Programming" required>
+                </div>
+                <div class="form-group">
+                    <label for="course-link-input">Course Link</label>
+                    <input type="url" id="course-link-input" placeholder="https://youtube.com/..." required>
+                </div>
+                <div class="form-group">
+                    <label for="study-hours-input">Daily Study Hours</label>
+                    <input type="number" id="study-hours-input" value="2" min="1" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-modal-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Simple Delete Modal -->
+    <div id="simple-delete-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-modal-btn">&times;</button>
+            <h2>Delete Course</h2>
+            <p>This course is already completed. Are you sure you want to delete it?</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary cancel-modal-btn">Cancel</button>
+                <button type="button" id="simple-delete-confirm-btn" class="btn btn-danger">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complex Delete Modal -->
+    <div id="complex-delete-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-modal-btn">&times;</button>
+            <h2>Delete Course</h2>
+            <p>This will permanently delete this course and all its progress.</p>
+            <p>To confirm, please type: <br><strong>CONFIRM TO DELETE COURSE</strong></p>
+            <div class="form-group">
+                <input type="text" id="delete-confirm-input" placeholder="Type to confirm...">
+                <p id="delete-error-msg" class="error-text hidden">Text does not match. Please type correctly.</p>
+            </div>
+            <div class="form-actions delete-actions-complex">
+                <span id="delete-countdown">10</span>
+                <button type="button" id="complex-delete-confirm-btn" class="btn btn-danger" disabled>Delete Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Quiz View -->
+    <div id="quiz-view" class="hidden">
+        <div class="quiz-view-container">
+            <div class="quiz-header">
+                <h2 id="quiz-view-title">Module Quiz</h2>
+                <div class="quiz-progress" id="quiz-progress-text">Question 1 of 5</div>
+            </div>
+            
+            <div id="quiz-progress-bar-container">
+                <div id="quiz-progress-bar"></div>
+            </div>
+            
+            <!-- Question Content -->
+            <div id="quiz-question-container">
+                <h3 id="quiz-question-text">What is the capital of France?</h3>
+                <div id="quiz-options-container">
+                    <!-- Options will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Results Content (hidden by default) -->
+            <div id="quiz-results-container" class="hidden">
+                <div id="quiz-results-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h2 id="quiz-results-score">Your Score: 4 / 5</h2>
+                <p id="quiz-results-summary">Great job! You passed.</p>
+                <button id="quiz-finish-btn" class="btn btn-primary">Back to Dashboard</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: Full-Screen Practice Lab View -->
+    <div id="lab-view" class="hidden">
+        <header class="lab-header">
+            <div class="lab-header-left">
+                <i class="fas fa-laptop-code"></i>
+                <h2 id="lab-title">Practice Lab</h2>
+            </div>
+            <button id="lab-close-btn" class="btn btn-secondary"><i class="fas fa-times"></i> Close Lab</button>
+        </header>
+        <div class="lab-container">
+            <!-- Left Panel: Challenge -->
+            <div id="lab-left-panel" class="lab-panel">
+                <div class="lab-panel-content">
+                    <h3>Challenge</h3>
+                    <p id="lab-question">Your challenge description will appear here.</p>
+                    <button id="lab-run-code-btn" class="btn btn-primary"><i class="fas fa-play"></i> Run Code</button>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Editor/Chat -->
+            <div id="lab-right-panel" class="lab-panel">
+                <div class="lab-tabs">
+                    <button class="lab-tab-btn active" data-tab="lab-editor-panel">Code Editor</button>
+                    <button class="lab-tab-btn" data-tab="lab-preview-panel">Preview</button>
+                    <button class="lab-tab-btn" data-tab="lab-chat-panel">AI Tutor</button>
+                </div>
+
+                <!-- Code Editor Panel -->
+                <div id="lab-editor-panel" class="lab-tab-content active">
+                    <div class="code-editor-wrapper">
+                        <label>HTML</label>
+                        <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                    <div class="code-editor-wrapper">
+                        <label>CSS</label>
+                        <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                    <div class="code-editor-wrapper">
+                        <label>JavaScript</label>
+                        <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                </div>
+
+                <!-- Preview Panel -->
+                <div id="lab-preview-panel" class="lab-tab-content">
+                    <iframe id="lab-preview-iframe" title="Code Preview"></iframe>
+                </div>
+
+                <!-- AI Chat Panel -->
+                <div id="lab-chat-panel" class="lab-tab-content">
+                    <div id="lab-chat-messages" class="chat-messages">
+                        <div class="chat-message ai">
+                            <i class="fas fa-robot"></i>
+                            <div class="message-content">
+                                <p>Stuck? Type your question below or just click "Get a Hint" and I'll see how I can help!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="lab-chat-input" placeholder="Type your question...">
+                        <button id="lab-get-hint-btn" class="btn btn-primary">Get a Hint</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="script.js"></script>
+</body>
+</html>

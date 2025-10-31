@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proctor Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+/* -------------------- Variables -------------------- */
+:root {
+    --primary-color: #1a73e8; 
+    --table-header-color: #475a7c;
+    --background-color: #f5f7f9;
+    --danger-color: #dc3545;
+    --success-color: #28a745;
+}
+body { font-family: 'Poppins', sans-serif; background: var(--background-color); margin: 0; }
+/* Smooth scaling when root font-size changes */
+html { transition: font-size 140ms ease-in-out; }
+.container { padding: 1.5rem 2rem; } 
+
+/* -------------------- Header & Navigation -------------------- */
+header { 
+    background: var(--primary-color); padding: 1rem 2rem; display: flex; 
+    justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+    position: sticky; top: 0; z-index: 1020; color: white;
+}
+header h2 { margin: 0; font-weight: 600; font-size: 1.5rem; }
+.header-icons i { font-size: 1.3rem; margin-left: 1.5rem; cursor: pointer; transition: color 0.2s; color: white; }
+.header-icons i:hover { color: rgba(255, 255, 255, 0.8); }
+
+/* -------------------- Statistic Cards -------------------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+.card { background: white; padding: 1.5rem; border-radius: 12px; border-left: 5px solid var(--primary-color); }
+.card p { font-size: 2.2rem; margin: 0; font-weight: 700; color: #333; }
+#suspicious-events-card { border-left-color: var(--danger-color); }
+
+/* -------------------- Table Styling -------------------- */
+.table-responsive { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+#candidate-table thead th { background: var(--table-header-color); color: white; font-weight: 600; font-size: 0.9rem; padding: 1rem 1rem; }
+.blocked { background-color: #ffcccc !important; font-weight: 600; }
+.blocked td:nth-child(8) { font-weight: 600; color: var(--danger-color); }
+img.candidate-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #ccc; }
+
+/* -------------------- Action Button -------------------- */
+.block-btn { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
+.block-btn:hover { background-color: #a71d2a; }
+.unblock-btn { background-color: var(--success-color); border-color: var(--success-color); color: white; }
+.unblock-btn:hover { background-color: #1e7e34; }
+
+/* -------------------- Alerts -------------------- */
+#live-alerts { position: fixed; top: 20px; right: 20px; z-index: 1050; }
+</style>
+<link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+<!-- Auto-scaling root font-size to respect system DPI and viewport width -->
+<script>
+/*
+    Auto UI scaling script
+    - Sets document root font-size (px) based on window width and devicePixelRatio
+    - Keeps values bounded for usability
+    - Updates on resize and DPR changes
+*/
+(function(){
+    const BASE_PX = 16; // baseline root font-size
+    const MIN_SCALE = 0.8; // minimum multiplier
+    const MAX_SCALE = 1.9; // maximum multiplier
+
+    function applyScaling(){
+        const w = Math.max(window.innerWidth || 1024, 320);
+        const dpr = window.devicePixelRatio || 1;
+        // widthFactor ranges ~0.75..1.6 for widths between 800 and 1920
+        const widthFactor = Math.min(1.6, Math.max(0.75, w / 1366));
+        let scale = dpr * widthFactor;
+        scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+        const newFont = Math.round(BASE_PX * scale);
+        document.documentElement.style.fontSize = newFont + 'px';
+        // Optional CSS variable for other scripts/styles
+        document.documentElement.style.setProperty('--ui-scale', String(scale));
+    }
+
+    // React when DPR changes (modern browsers support 'change' on matchMedia)
+    function watchDPR(){
+        try{
+            const query = `(resolution: ${window.devicePixelRatio}dppx)`;
+            const mq = window.matchMedia(query);
+            if (mq && typeof mq.addEventListener === 'function') {
+                mq.addEventListener('change', applyScaling);
+            } else if (mq && typeof mq.addListener === 'function'){
+                mq.addListener(applyScaling);
+            }
+        } catch(e){ /* ignore */ }
+    }
+
+    window.addEventListener('resize', applyScaling, { passive: true });
+    window.addEventListener('orientationchange', applyScaling);
+    watchDPR();
+    // apply immediately
+    applyScaling();
+})();
+</script>
+</head>
+<body>
+
+<header>
+    <h2><i class="fas fa-desktop" style="margin-right: 10px;"></i>Proctor Command Center</h2>
+    <div class="header-icons">
+        <a href="#" style="color: inherit;"><i class="fas fa-bell" title="Notifications"></i></a>
+        <a href="#" style="color: inherit;"><i class="fas fa-cog" title="Settings"></i></a>
+        <a href="#" style="color: inherit;"><i class="fas fa-user-circle" title="Profile"></i></a>
+    </div>
+</header>
+
+<div class="container">
+    <div class="cards">
+        <div class="card" id="total-candidates-card">
+            <div class="card-icon-wrapper"><i class="fas fa-user-graduate"></i></div>
+            <h3>Total Candidates</h3>
+            <p id="total-candidates">0</p>
+        </div>
+        <div class="card" id="active-sessions-card">
+            <div class="card-icon-wrapper"><i class="fas fa-video"></i></div>
+            <h3>Active Sessions</h3>
+            <p id="active-sessions">0</p>
+        </div>
+        <div class="card" id="suspicious-events-card">
+            <div class="card-icon-wrapper"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3>Suspicious Events</h3>
+            <p id="suspicious-events">0</p>
+        </div>
+        <div class="card" id="clean-sessions-card">
+            <div class="card-icon-wrapper"><i class="fas fa-check-circle"></i></div>
+            <h3>Clean Sessions</h3>
+            <p id="clean-sessions">0</p>
+        </div>
+    </div>
+
+    <h3 class="mb-3" style="color:#444; font-weight: 600;">Live Session Monitoring</h3>
+    
+    <div class="table-responsive">
+        <table class="table table-striped" id="candidate-table">
+            <thead>
+                <tr>
+                    <th></th> 
+                    <th>Name</th>
+                    <th>Roll Number</th>
+                    <th>Session ID</th>
+                    <th>Score</th> 
+                    <th>Status</th> 
+                    <th>Blocked</th>
+                    <th>Block Reason</th>
+                    <th>Last Alert</th>
+                    <th>Action</th> 
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="live-alerts"></div>
+
+<script>
+// Helper to get CSRF token from cookies (necessary for Django POST requests)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ----------------------------------------------------
+// 1. BLOCKING ACTION
+// ----------------------------------------------------
+async function blockCandidate(candidateId) {
+    if (!confirm(`Are you sure you want to BLOCK candidate ID ${candidateId}? This will end their exam.`)) {
+        return;
+    }
+    
+    const blockUrl = "{% url 'proctor_block' %}"; 
+    const csrfToken = getCookie('csrftoken');
+    
+    try {
+        const response = await fetch(blockUrl, { 
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 'candidate_id': candidateId, 'reason': 'Manual Proctor Block' }) 
+        });
+        
+        if (response.ok) {
+            alert("Candidate blocked successfully! Refreshing data..."); 
+            loadDashboard();
+        } else {
+            alert("Failed to block candidate. Check backend logs.");
+        }
+    } catch (error) {
+        console.error("Network error while blocking candidate:", error);
+    }
+}
+
+// ----------------------------------------------------
+// 2. UNBLOCKING ACTION
+// ----------------------------------------------------
+async function unblockCandidate(candidateId) {
+    if (!confirm(`Are you sure you want to UNBLOCK candidate ID ${candidateId}?`)) {
+        return;
+    }
+    
+    const unblockUrl = "{% url 'proctor_unblock' %}"; 
+    const csrfToken = getCookie('csrftoken');
+    
+    try {
+        const response = await fetch(unblockUrl, { 
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 'candidate_id': candidateId })
+        });
+        
+        if (response.ok) {
+            alert("Candidate unblocked successfully! Refreshing data..."); 
+            loadDashboard();
+        } else {
+            alert("Failed to unblock candidate. Check backend logs.");
+        }
+    } catch (error) {
+        console.error("Network error while unblocking candidate:", error);
+    }
+}
+
+// ----------------------------------------------------
+// 3. DASHBOARD LOAD AND TABLE RENDERING
+// ----------------------------------------------------
+async function loadDashboard() {
+    try {
+        const response = await fetch("/api/get_sessions/"); 
+        const data = await response.json();
+
+        // Update stats (omitted for brevity, assume this works)
+        document.getElementById("total-candidates").innerText = data.total_candidates || 0;
+        document.getElementById("active-sessions").innerText = data.active_sessions || 0;
+        document.getElementById("suspicious-events").innerText = data.suspicious_events || 0;
+        document.getElementById("clean-sessions").innerText = data.clean_sessions || 0;
+        
+        const tbody = document.querySelector("#candidate-table tbody");
+        tbody.innerHTML = "";
+
+        data.sessions.forEach(session => {
+            const tr = document.createElement("tr");
+            if (session.blocked) tr.classList.add('blocked');
+
+            const name = session.candidate_name || "N/A";
+            const photo = session.photo_url || "https://via.placeholder.com/40/CCCCCC/FFFFFF?text=P"; 
+            const verdict = session.verdict || "clean";
+            const suspicionScore = session.suspicion_score ?? 0;
+            const sessionId = session.id ?? "-";
+
+            let actionCell;
+            let blockedText;
+            const blockReason = session.block_reason || '—'; 
+
+            // Conditional Block/Unblock Logic 
+            if (session.blocked) {
+                blockedText = 'YES <i class="fas fa-lock" style="color: var(--danger-color);"></i>';
+                actionCell = `
+                    <button class="btn btn-sm unblock-btn" data-id="${session.candidate_id || ''}">
+                        <i class="fas fa-unlock"></i> Unblock
+                    </button>`;
+            } else {
+                blockedText = 'NO';
+                actionCell = `
+                    <button class="btn btn-sm block-btn" data-id="${session.candidate_id || ''}">
+                        <i class="fas fa-ban"></i> Block
+                    </button>`;
+            }
+
+            // 🌟 FIX: Corrected syntax for 'proctor_view' URL generation 🌟
+            // This is the line that caused the TemplateSyntaxError.
+            const proctorViewUrl = `{% url 'proctor_view' candidate_id=123456789 %}`.replace('123456789', session.candidate_id);
+
+            tr.innerHTML = `
+                <td><img src="${photo}" class="candidate-photo" alt="Candidate Photo"/></td>
+                <td><a href="${proctorViewUrl}" style="text-decoration:none; color:var(--primary-color); font-weight: 500;">${name}</a></td>
+                <td>${session.roll_number || 'N/A'}</td>
+                <td>${sessionId}</td>
+                <td style="font-weight: 600; color: ${suspicionScore > 50 ? 'var(--danger-color)' : suspicionScore > 20 ? 'orange' : '#333'}">${suspicionScore}</td>
+                <td class="${verdict === 'clean' ? 'status-clean' : 'status-suspicious'}">${verdict.toUpperCase()}</td>
+                <td>${blockedText}</td>
+                <td>${session.blocked ? blockReason : '—'}</td>
+                <td>${session.last_event_type || '-'}</td>
+                <td>${actionCell}</td>
+            `;
+            tbody.appendChild(tr);
+
+            // ... (Live alert popup logic)
+        });
+
+        // Attach event listeners for BOTH Block and Unblock buttons
+        document.querySelectorAll('.unblock-btn').forEach(btn => {
+            btn.addEventListener('click', () => unblockCandidate(btn.dataset.id));
+        });
+        document.querySelectorAll('.block-btn').forEach(btn => {
+            btn.addEventListener('click', () => blockCandidate(btn.dataset.id));
+        });
+
+    } catch (error) {
+        console.error("Error loading dashboard:", error);
+    }
+}
+
+setInterval(loadDashboard, 5000);
+loadDashboard();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

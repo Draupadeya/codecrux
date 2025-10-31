@@ -1,0 +1,55 @@
+{% load static %}
+<div class="card" id="module-card">
+    
+    <h4 id="moduleTitle">
+        <i class="fas fa-calendar-day me-2"></i> {{ module.title|default:"Module Content" }}
+    </h4>
+    
+    <div class="video-player-box mb-4">
+        <iframe 
+            id="videoEmbed" 
+            src="{{ video_src|default:'about:blank' }}" 
+            title="Module Video" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <div class="mb-4">
+        <p class="text-muted">{{ module.description|default:"Loading description..." }}</p>
+        
+        {% if module.keyPoints %}
+            <p class="fw-bold mt-3">Key Concepts in this Segment:</p>
+            <ul class="list-unstyled small">
+                {% for point in module.keyPoints %}
+                    <li><i class="fas fa-arrow-right me-2 text-info"></i>{{ point }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+
+    <div class="activity-section">
+        <h6><i class="fas fa-pencil-alt me-1"></i> Module Activity: Quiz & Code Challenge</h6>
+        
+        <div id="quizArea" class="mb-4 card p-3 border-secondary">
+            <h6 class="fw-bold"><i class="fas fa-question-circle me-1 text-danger"></i> Quiz for Module {{ module.id }}</h6>
+            <p>Loading 5 questions...</p>
+            <div id="quiz-questions-list"></div> 
+            <button class="btn btn-sm btn-outline-success mt-3" onclick="loadQuiz({{ module.id }})">Load Quiz</button>
+        </div>
+        
+        <div id="codingArea">
+            <h6 class="fw-bold"><i class="fas fa-code me-1 text-primary"></i> Code Challenge</h6>
+            <p id="problemStatement">Problem: {{ module.problem_statement|default:'Implement the required logic for this module.' }}</p>
+            
+            <textarea id="codeInput" class="form-control" rows="8" placeholder="// Write your solution here" style="font-family: monospace;"></textarea>
+            
+            <button class="btn btn-submit-activity text-white mt-2 btn-primary" onclick="submitCode({{ module.id }})">
+                <i class="fas fa-paper-plane me-2"></i> Test & Save Code
+            </button>
+            <div id="code-output-{{ module.id }}" class="mt-2 small"></div>
+        </div>
+    </div>
+</div>

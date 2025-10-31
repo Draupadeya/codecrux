@@ -1,0 +1,176 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeCrux | Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- General Variables & Body Styling (Light Theme) --- */
+        :root {
+            --primary-purple: #8e2de2; /* Main action color */
+            --light-bg: #f5f7f9; /* Very light background */
+            --card-bg: #ffffff;
+            --text-dark: #333;
+            --border-color-light: #ddd;
+            --button-hover-dark: #622cac;
+            --glow-color: rgba(142, 45, 226, 0.2);
+        }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: var(--light-bg); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        /* --- Login Card Container --- */
+        .login-card { 
+            background: var(--card-bg); 
+            padding: 3rem 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
+            text-align: center; 
+            width: 100%;
+            max-width: 400px; 
+        }
+        
+        /* --- Branding/Header within Card --- */
+        .brand-header {
+            margin-bottom: 2.5rem;
+        }
+        .brand-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-purple);
+            margin-top: 5px;
+        }
+        .brand-icon {
+            font-size: 3rem;
+            /* Colorful gradient for the icon */
+            background: linear-gradient(45deg, #ff007f, #8e2de2); /* Pink to Purple */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 5px rgba(255, 0, 127, 0.4)); /* Subtle glow */
+        }
+        
+        /* --- Form Elements --- */
+        .input-group-text {
+            background-color: var(--card-bg);
+            border-right: none;
+            color: var(--primary-purple);
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            border-color: var(--border-color-light);
+            padding: 12px;
+        }
+        .form-control {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color-light);
+            background-color: #f9f9f9;
+            color: var(--text-dark);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+            border-left: none; /* Make input look connected to icon */
+        }
+        .form-control:focus {
+            border-color: var(--primary-purple);
+            box-shadow: 0 0 0 0.25rem var(--glow-color);
+            outline: none;
+        }
+        .btn-submit {
+            background-color: var(--primary-purple);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            width: 100%;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            margin-top: 15px;
+        }
+        .btn-submit:hover {
+            background-color: var(--button-hover-dark);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Checkbox Styling */
+        .form-check-input:checked {
+            background-color: var(--primary-purple);
+            border-color: var(--primary-purple);
+        }
+        .form-check-label {
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+        .alert {
+            font-size: 0.9rem;
+            padding: 10px 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+    </style>
+    <link rel="stylesheet" href="http://127.0.0.1:5000/style.css">
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="brand-header">
+            <i class="fas fa-lock brand-icon"></i>
+            <div class="brand-title">CodeCrux</div>
+        </div>
+        
+        <h2 class="h5 text-muted mb-4">Secure Access</h2>
+        
+        <form method="POST" action="{% url 'login' %}"> 
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                    <input type="text" class="form-control" name="username" placeholder="Username or Roll No." required>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                    <input type="password" class="form-control" name="password" placeholder="Password" required>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-start mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rememberMe">
+                    <label class="form-check-label" for="rememberMe">
+                        Remember me
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-sign-in-alt me-2"></i> SIGN IN
+            </button>
+            
+            {% if form.errors %}
+                <div class="alert alert-danger" role="alert">
+                    Invalid credentials. Please try again.
+                </div>
+            {% endif %}
+            
+        </form>
+        
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
