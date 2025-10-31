@@ -50,10 +50,15 @@ urlpatterns = [
     path('api/block/', views.proctor_block_view, name='proctor_block'),
     path('api/unblock/', views.proctor_unblock_view, name='proctor_unblock'),
     path('api/mark-step/', views.mark_step_complete, name='mark_step_complete'),  # NEW: Mark exam flow step
+    path('api/submit-exam/', views.submit_exam, name='submit_exam'),  # NEW: Submit exam
     
     # 5. PROCTOR VIEWS
     path('proctor/view/<int:candidate_id>/', views.proctor_view, name='proctor_view'),
-   
+    
+    # 6. EXAM RESULTS AND CERTIFICATE
+    path('result/<int:session_id>/', views.exam_result, name='exam_result'),
+    path('certificate/<int:session_id>/download/', views.generate_certificate, name='generate_certificate'),
+    path('certificate/<int:session_id>/preview/', views.preview_certificate, name='preview_certificate'),
     
     # URL to mark a quiz/code challenge complete
   

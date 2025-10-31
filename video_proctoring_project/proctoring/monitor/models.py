@@ -56,6 +56,13 @@ class Session(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)  # ✅ Add this line
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Exam completion fields
+    exam_completed = models.BooleanField(default=False)
+    exam_score = models.FloatField(null=True, blank=True)  # Score out of 100
+    total_questions = models.IntegerField(null=True, blank=True)
+    correct_answers = models.IntegerField(null=True, blank=True)
+    certificate_generated = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Session {self.id} - {self.candidate.name if self.candidate else 'Unknown'}"

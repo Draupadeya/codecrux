@@ -880,6 +880,217 @@ def mark_step_complete(request: HttpRequest):
 @login_required
 def practice_exam_redirect(request):
     return redirect("http://127.0.0.1:5000")
+
+
+# ==========================
+# Exam Completion and Certificate Views
+# ==========================
+
+@login_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def submit_exam(request: HttpRequest):
+    """API endpoint to submit exam and calculate results."""
+    try:
+        data = json.loads(request.body)
+        session_id = request.session.get('current_session')
+        
+        if not session_id:
+            return JsonResponse({'status': 'error', 'message': 'No active session'}, status=400)
+        
+        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        
+        # Update session with exam results
+        session.exam_completed = True
+        session.ended_at = datetime.datetime.now()
+        session.active = False
+        session.total_questions = data.get('total_questions', 0)
+        session.correct_answers = data.get('correct_answers', 0)
+        
+        # Calculate score
+        if session.total_questions > 0:
+            session.exam_score = (session.correct_answers / session.total_questions) * 100
+        else:
+            session.exam_score = 0
+        
+        session.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'session_id': session.id,
+            'score': session.exam_score,
+            'redirect_url': f'/result/{session.id}/'
+        })
+    
+    except Session.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+def exam_result(request: HttpRequest, session_id):
+    """Display exam results and certificate preview."""
+    try:
+        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        
+        if not session.exam_completed:
+            return redirect('student_dashboard')
+        
+        # Determine pass/fail (example: 60% passing grade)
+        passed = session.exam_score >= 60 if session.exam_score else False
+        
+        context = {
+            'session': session,
+            'candidate': session.candidate,
+            'passed': passed,
+            'percentage': round(session.exam_score, 2) if session.exam_score else 0,
+            'grade': get_grade(session.exam_score) if session.exam_score else 'F',
+        }
+        
+        return render(request, 'monitor/exam_result.html', context)
+    
+    except Session.DoesNotExist:
+        return redirect('student_dashboard')
+
+
+def get_grade(score):
+    """Convert score to letter grade."""
+    if score >= 90:
+        return 'A+'
+    elif score >= 80:
+        return 'A'
+    elif score >= 70:
+        return 'B'
+    elif score >= 60:
+        return 'C'
+    elif score >= 50:
+        return 'D'
+    else:
+        return 'F'
+
+
+@login_required
+def generate_certificate(request: HttpRequest, session_id):
+    """Generate PDF certificate for completed exam."""
+    try:
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.lib.units import inch
+        from reportlab.pdfgen import canvas
+        from reportlab.lib import colors
+        from django.http import HttpResponse
+        import io
+        
+        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        
+        if not session.exam_completed or not session.exam_score or session.exam_score < 60:
+            return JsonResponse({'status': 'error', 'message': 'Certificate not available'}, status=400)
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=landscape(letter))
+        width, height = landscape(letter)
+        
+        # Draw border
+        p.setStrokeColor(colors.HexColor('#1e40af'))
+        p.setLineWidth(3)
+        p.rect(0.5*inch, 0.5*inch, width-inch, height-inch, stroke=1, fill=0)
+        
+        # Inner border
+        p.setStrokeColor(colors.HexColor('#3b82f6'))
+        p.setLineWidth(1)
+        p.rect(0.6*inch, 0.6*inch, width-1.2*inch, height-1.2*inch, stroke=1, fill=0)
+        
+        # Title
+        p.setFont("Helvetica-Bold", 48)
+        p.setFillColor(colors.HexColor('#1e40af'))
+        p.drawCentredString(width/2, height-1.5*inch, "CERTIFICATE OF COMPLETION")
+        
+        # Subtitle
+        p.setFont("Helvetica", 16)
+        p.setFillColor(colors.black)
+        p.drawCentredString(width/2, height-2*inch, "This is to certify that")
+        
+        # Candidate name
+        p.setFont("Helvetica-Bold", 36)
+        p.setFillColor(colors.HexColor('#1e40af'))
+        p.drawCentredString(width/2, height-2.8*inch, session.candidate.name.upper())
+        
+        # Details
+        p.setFont("Helvetica", 16)
+        p.setFillColor(colors.black)
+        p.drawCentredString(width/2, height-3.5*inch, f"Roll Number: {session.candidate.roll_number}")
+        p.drawCentredString(width/2, height-4*inch, "has successfully completed the examination with")
+        
+        # Score
+        p.setFont("Helvetica-Bold", 32)
+        p.setFillColor(colors.HexColor('#059669'))
+        p.drawCentredString(width/2, height-4.8*inch, f"{round(session.exam_score, 2)}% Score")
+        
+        # Grade
+        p.setFont("Helvetica-Bold", 28)
+        p.drawCentredString(width/2, height-5.4*inch, f"Grade: {get_grade(session.exam_score)}")
+        
+        # Date and signature area
+        p.setFont("Helvetica", 12)
+        p.setFillColor(colors.black)
+        date_str = session.ended_at.strftime("%B %d, %Y") if session.ended_at else datetime.datetime.now().strftime("%B %d, %Y")
+        p.drawString(1.5*inch, 1.5*inch, f"Date: {date_str}")
+        p.drawRightString(width-1.5*inch, 1.5*inch, "Authorized Signature")
+        
+        # Certificate ID
+        p.setFont("Helvetica", 8)
+        p.setFillColor(colors.grey)
+        p.drawCentredString(width/2, 0.8*inch, f"Certificate ID: CERT-{session.id}-{session.candidate.roll_number}")
+        
+        p.showPage()
+        p.save()
+        
+        # Mark certificate as generated
+        session.certificate_generated = True
+        session.save()
+        
+        # Return PDF
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        filename = f"Certificate_{session.candidate.roll_number}_{session.id}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+    
+    except ImportError:
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'ReportLab library not installed. Please install: pip install reportlab'
+        }, status=500)
+    except Session.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+def preview_certificate(request: HttpRequest, session_id):
+    """Preview certificate as HTML before downloading PDF."""
+    try:
+        session = Session.objects.get(id=session_id, candidate__studentprofile__user=request.user)
+        
+        if not session.exam_completed or not session.exam_score or session.exam_score < 60:
+            return JsonResponse({'status': 'error', 'message': 'Certificate not available'}, status=400)
+        
+        context = {
+            'session': session,
+            'candidate': session.candidate,
+            'score': round(session.exam_score, 2),
+            'grade': get_grade(session.exam_score),
+            'date': session.ended_at.strftime("%B %d, %Y") if session.ended_at else datetime.datetime.now().strftime("%B %d, %Y"),
+            'certificate_id': f"CERT-{session.id}-{session.candidate.roll_number}"
+        }
+        
+        return render(request, 'monitor/certificate_preview.html', context)
+    
+    except Session.DoesNotExist:
+        return redirect('student_dashboard')
 # monitor/views.py (Add this function alongside your other API views)
 
 

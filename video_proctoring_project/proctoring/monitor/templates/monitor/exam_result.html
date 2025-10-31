@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Results - {{ candidate.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        @keyframes confetti {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #f39c12;
+            animation: confetti 3s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    {% if passed %}
+    <!-- Confetti Effect for Pass -->
+    <div id="confetti-container"></div>
+    {% endif %}
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-graduation-cap text-blue-600"></i> Exam Results
+            </h1>
+            <p class="text-gray-600">{{ candidate.name }} ({{ candidate.roll_number }})</p>
+        </div>
+
+        <!-- Result Card -->
+        <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden fade-in" style="animation-delay: 0.2s;">
+            <!-- Status Banner -->
+            <div class="{% if passed %}bg-gradient-to-r from-green-500 to-green-600{% else %}bg-gradient-to-r from-red-500 to-red-600{% endif %} text-white p-8 text-center">
+                <div class="text-6xl mb-4">
+                    {% if passed %}
+                    <i class="fas fa-check-circle"></i>
+                    {% else %}
+                    <i class="fas fa-times-circle"></i>
+                    {% endif %}
+                </div>
+                <h2 class="text-3xl font-bold mb-2">
+                    {% if passed %}Congratulations! You Passed!{% else %}Better Luck Next Time{% endif %}
+                </h2>
+                <p class="text-xl opacity-90">
+                    {% if passed %}You've successfully completed the examination{% else %}Keep practicing and try again{% endif %}
+                </p>
+            </div>
+
+            <!-- Score Details -->
+            <div class="p-8">
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <!-- Score -->
+                    <div class="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
+                        <div class="text-4xl font-bold text-blue-600 mb-2">{{ percentage }}%</div>
+                        <div class="text-gray-600 font-medium">Your Score</div>
+                    </div>
+                    
+                    <!-- Grade -->
+                    <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
+                        <div class="text-4xl font-bold text-purple-600 mb-2">{{ grade }}</div>
+                        <div class="text-gray-600 font-medium">Grade</div>
+                    </div>
+                    
+                    <!-- Questions -->
+                    <div class="text-center p-6 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl">
+                        <div class="text-4xl font-bold text-indigo-600 mb-2">{{ session.correct_answers }}/{{ session.total_questions }}</div>
+                        <div class="text-gray-600 font-medium">Correct Answers</div>
+                    </div>
+                </div>
+
+                <!-- Session Info -->
+                <div class="bg-gray-50 rounded-xl p-6 mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-info-circle text-blue-600"></i> Exam Details
+                    </h3>
+                    <div class="grid md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">Started:</span>
+                            <span class="font-medium ml-2">{{ session.started_at|date:"F d, Y g:i A" }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Completed:</span>
+                            <span class="font-medium ml-2">{{ session.ended_at|date:"F d, Y g:i A" }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Proctoring Status:</span>
+                            <span class="font-medium ml-2 {% if session.verdict == 'clean' %}text-green-600{% else %}text-yellow-600{% endif %}">
+                                {{ session.verdict|capfirst }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Session ID:</span>
+                            <span class="font-medium ml-2">{{ session.id }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if passed %}
+                <!-- Certificate Section -->
+                <div class="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-xl p-8 mb-6">
+                    <div class="text-center mb-6">
+                        <div class="inline-block p-4 bg-white rounded-full shadow-md mb-4">
+                            <i class="fas fa-certificate text-5xl text-amber-500"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">
+                            Certificate of Completion
+                        </h3>
+                        <p class="text-gray-600">Your achievement is ready to be downloaded and shared!</p>
+                    </div>
+
+                    <!-- Certificate Actions -->
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <!-- Preview Certificate -->
+                        <a href="{% url 'preview_certificate' session.id %}" target="_blank"
+                           class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                            <i class="fas fa-eye mr-2"></i>
+                            Preview Certificate
+                        </a>
+
+                        <!-- Download PDF -->
+                        <a href="{% url 'generate_certificate' session.id %}" download
+                           class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                            <i class="fas fa-download mr-2"></i>
+                            Download PDF
+                        </a>
+
+                        <!-- Share Button -->
+                        <button onclick="shareCertificate()"
+                                class="inline-flex items-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                            <i class="fas fa-share-alt mr-2"></i>
+                            Share
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="{% url 'student_dashboard' %}"
+                       class="inline-flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition duration-300">
+                        <i class="fas fa-home mr-2"></i>
+                        Back to Dashboard
+                    </a>
+                    
+                    {% if not passed %}
+                    <a href="{% url 'exam_flow' %}"
+                       class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-300">
+                        <i class="fas fa-redo mr-2"></i>
+                        Retake Exam
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8">
+            <div class="text-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-share-nodes text-purple-600"></i> Share Your Achievement
+                </h3>
+                <p class="text-gray-600">Spread the word about your success!</p>
+            </div>
+
+            <div class="space-y-3">
+                <!-- WhatsApp -->
+                <button onclick="shareVia('whatsapp')" 
+                        class="w-full flex items-center justify-center px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition duration-300">
+                    <i class="fab fa-whatsapp text-2xl mr-3"></i>
+                    Share on WhatsApp
+                </button>
+
+                <!-- Twitter -->
+                <button onclick="shareVia('twitter')" 
+                        class="w-full flex items-center justify-center px-6 py-3 bg-blue-400 hover:bg-blue-500 text-white font-semibold rounded-lg transition duration-300">
+                    <i class="fab fa-twitter text-2xl mr-3"></i>
+                    Share on Twitter
+                </button>
+
+                <!-- LinkedIn -->
+                <button onclick="shareVia('linkedin')" 
+                        class="w-full flex items-center justify-center px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg transition duration-300">
+                    <i class="fab fa-linkedin text-2xl mr-3"></i>
+                    Share on LinkedIn
+                </button>
+
+                <!-- Copy Link -->
+                <button onclick="copyLink()" 
+                        class="w-full flex items-center justify-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition duration-300">
+                    <i class="fas fa-link text-xl mr-3"></i>
+                    Copy Link
+                </button>
+            </div>
+
+            <button onclick="closeShareModal()" 
+                    class="mt-6 w-full px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition duration-300">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Confetti animation for pass
+        {% if passed %}
+        function createConfetti() {
+            const colors = ['#f39c12', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6'];
+            const container = document.getElementById('confetti-container');
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                container.appendChild(confetti);
+            }
+            
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+        createConfetti();
+        {% endif %}
+
+        // Share functionality
+        function shareCertificate() {
+            document.getElementById('shareModal').classList.remove('hidden');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+        }
+
+        function shareVia(platform) {
+            const text = "I've successfully completed my exam with {{ percentage }}% score! 🎓";
+            const url = window.location.href;
+            
+            let shareUrl = '';
+            switch(platform) {
+                case 'whatsapp':
+                    shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+                    break;
+                case 'twitter':
+                    shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+                    break;
+                case 'linkedin':
+                    shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+                    break;
+            }
+            
+            if (shareUrl) {
+                window.open(shareUrl, '_blank', 'width=600,height=400');
+            }
+        }
+
+        function copyLink() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link copied to clipboard!');
+                closeShareModal();
+            });
+        }
+
+        // Close modal on outside click
+        document.getElementById('shareModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeShareModal();
+            }
+        });
+    </script>
+</body>
+</html>
